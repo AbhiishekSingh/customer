@@ -1,0 +1,10 @@
+﻿backend/venv/
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.env
+backend/uploads/
+frontend/node_modules/
+frontend/dist/
+_upload_staging/
