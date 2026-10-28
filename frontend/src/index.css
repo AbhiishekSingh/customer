@@ -321,16 +321,61 @@ th.sortable:hover{color:var(--ink-2)}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;align-items:center}
 .skeleton{color:var(--muted);padding:40px;text-align:center}
 .err-box{color:var(--bad);background:var(--bad-soft);border:1px solid #f0c7c2;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px}
-.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:480px;margin:28px auto 0}
-.tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;box-shadow:0 1px 2px rgba(20,20,30,.03)}
-.tile:hover{border-color:var(--indigo);box-shadow:0 2px 10px rgba(59,63,181,.12)}
-.tile .ic{font-size:26px;margin-bottom:8px}
-.tile b{display:block;font-size:14px}
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
-.login-card{width:min(460px,100%);padding:10px}
-.login-logo{width:46px;height:46px;border-radius:10px;background:var(--indigo);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px;margin:0 auto 10px}
-.center-title{text-align:center;margin-bottom:4px}
-.center-sub{text-align:center;color:var(--muted);font-size:12.5px;margin-bottom:0}
+/* ---------- sign-in (single page: role + email + password together) ---------- */
+.login-wrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% -10%,#eef0fb 0%,var(--bg) 55%);padding:24px;
+}
+.login-card{width:min(420px,100%)}
+.login-logo{
+  width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--indigo),var(--indigo-2));
+  color:#fff;display:grid;place-items:center;font-weight:700;font-size:19px;margin:0 auto 16px;
+  box-shadow:0 6px 16px rgba(59,63,181,.28);
+}
+.center-title{text-align:center;margin-bottom:6px;font-size:23px;letter-spacing:-.01em}
+.center-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:0}
+
+/* the form box sitting inside .login-card (shared by Login/ForgotPassword/SetPassword) */
+.login-card .card{
+  border-radius:18px;border:1px solid var(--line-2);padding:30px 28px;
+  box-shadow:0 2px 6px rgba(20,20,30,.04),0 16px 40px -12px rgba(30,32,60,.14);
+}
+.login-card .err-box{font-size:12.5px}
+
+.login-card .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+.login-card .field input{
+  width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:9px;
+  font:inherit;font-size:14px;background:#fff;transition:border-color .15s,box-shadow .15s;
+}
+.login-card .field input:focus{
+  outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft);
+}
+.login-card .field{margin-bottom:14px}
+
+.login-card .btn.primary{
+  height:42px;border-radius:9px;font-size:14px;font-weight:600;letter-spacing:.01em;
+  box-shadow:0 1px 2px rgba(20,20,30,.06);transition:background .15s,box-shadow .15s,transform .05s;
+}
+.login-card .btn.primary:hover{box-shadow:0 4px 12px rgba(59,63,181,.28)}
+.login-card .btn.primary:active{transform:translateY(1px)}
+.login-card .btn.primary:disabled{box-shadow:none}
+
+.role-label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:8px}
+.role-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+.role-chip{
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px 9px;
+  border:1.5px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;
+  font:inherit;font-size:11px;font-weight:600;color:var(--ink-2);line-height:1.2;transition:.12s;
+}
+.role-chip .ic{font-size:16px;line-height:1}
+.role-chip:hover{border-color:#c7c9e4;background:#fbfbfe}
+.role-chip.active{border-color:var(--indigo);background:var(--indigo-soft);color:var(--indigo-2);box-shadow:0 0 0 1px var(--indigo) inset}
+
+@media (max-width:420px){
+  .role-row{grid-template-columns:repeat(2,1fr)}
+  .login-card .card{padding:24px 18px;border-radius:14px}
+}
+
 .nav a.navlink{cursor:pointer}
 .link-btn{background:none;border:0;color:var(--indigo);cursor:pointer;font:inherit;padding:0}
 .link-btn:hover{text-decoration:underline}

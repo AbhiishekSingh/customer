@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext'
 import { ErrBox } from '../components/ui'
 
 const ROLES = [
-  { key: 'design', label: 'Design Team', ic: '✎' },
+  { key: 'design', label: 'Design', ic: '✎' },
   { key: 'manager', label: 'Manager', ic: '◉' },
   { key: 'admin', label: 'Admin', ic: '⚙' },
-  { key: 'top', label: 'Top Management', ic: '★' },
+  { key: 'top', label: 'Top Mgmt', ic: '★' },
 ]
 
 export default function Login() {
@@ -21,6 +21,10 @@ export default function Login() {
 
   async function submit(e) {
     e.preventDefault()
+    if (!role) {
+      setErr('Please select your role above.')
+      return
+    }
     setErr('')
     setBusy(true)
     try {
@@ -37,43 +41,57 @@ export default function Login() {
     <div className="login-wrap">
       <div className="login-card">
         <div className="login-logo">AF</div>
-        <h1 className="center-title">Customer Follow-Up</h1>
-        <p className="center-sub">Aditya Birla Group · Follow-Up Digitization</p>
+        <h1 className="center-title">Sign in</h1>
+        <p className="center-sub">Customer Follow-Up · Aditya Birla Group</p>
 
-        {!role ? (
-          <div className="tiles">
+        <form className="card" style={{ marginTop: 22 }} onSubmit={submit}>
+          <ErrBox message={err} />
+
+          <label className="role-label">Sign in as</label>
+          <div className="role-row">
             {ROLES.map((r) => (
-              <div key={r.key} className="tile" onClick={() => setRole(r.key)}>
-                <div className="ic">{r.ic}</div>
-                <b>{r.label}</b>
-              </div>
+              <button
+                key={r.key}
+                type="button"
+                className={'role-chip' + (role === r.key ? ' active' : '')}
+                onClick={() => setRole(r.key)}
+              >
+                <span className="ic">{r.ic}</span>
+                {r.label}
+              </button>
             ))}
           </div>
-        ) : (
-          <form className="card" style={{ marginTop: 20 }} onSubmit={submit}>
-            <p className="hint" style={{ marginTop: 0 }}>
-              Signing in as <b>{ROLES.find((r) => r.key === role).label}</b> ·{' '}
-              <button type="button" className="link-btn" onClick={() => setRole(null)}>
-                change
-              </button>
-            </p>
-            <ErrBox message={err} />
-            <div className="field">
-              <label>Email</label>
-              <input type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="field">
-              <label>Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            <button className="btn primary" type="submit" disabled={busy} style={{ width: '100%' }}>
-              {busy ? 'Signing in…' : 'Sign in'}
-            </button>
-            <p className="hint" style={{ textAlign: 'center', marginTop: 12 }}>
-              <Link to="/forgot-password">Forgot password?</Link>
-            </p>
-          </form>
-        )}
+
+          <div className="field">
+            <label>Email</label>
+            <input
+              type="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+          <div className="field">
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          <button className="btn primary" type="submit" disabled={busy} style={{ width: '100%' }}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+
+          <p className="hint" style={{ textAlign: 'center', marginTop: 14 }}>
+            <Link to="/forgot-password">Forgot password?</Link>
+          </p>
+        </form>
       </div>
     </div>
   )
