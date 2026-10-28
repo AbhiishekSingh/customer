@@ -253,39 +253,43 @@ export default function DataTable({
 
       <div className="card pad0">
         <table>
-          <tr>
-            {visibleColumns.map((c) => (
-              <th
-                key={c.key}
-                className={c.sortable !== false ? 'sortable' : ''}
-                onClick={c.sortable !== false ? () => sort(c.key) : undefined}
-              >
-                {c.label}
-                {sortKey === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
-              </th>
-            ))}
-            {actions ? <th></th> : null}
-          </tr>
-          {!pageRows.length ? (
+          <thead>
             <tr>
-              <td colSpan={visibleColumns.length + (actions ? 1 : 0)}>
-                <div className="empty">{emptyText}</div>
-              </td>
+              {visibleColumns.map((c) => (
+                <th
+                  key={c.key}
+                  className={c.sortable !== false ? 'sortable' : ''}
+                  onClick={c.sortable !== false ? () => sort(c.key) : undefined}
+                >
+                  {c.label}
+                  {sortKey === c.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+              ))}
+              {actions ? <th></th> : null}
             </tr>
-          ) : (
-            pageRows.map((r) => (
-              <tr key={rowKey(r)} className={[onRowClick ? 'click' : '', rowClass ? rowClass(r) : ''].filter(Boolean).join(' ')} onClick={onRowClick ? () => onRowClick(r) : undefined}>
-                {visibleColumns.map((c) => (
-                  <td key={c.key}>{c.render ? c.render(r) : c.get ? c.get(r) : ''}</td>
-                ))}
-                {actions ? (
-                  <td className="act" onClick={(e) => e.stopPropagation()}>
-                    {actions(r)}
-                  </td>
-                ) : null}
+          </thead>
+          <tbody>
+            {!pageRows.length ? (
+              <tr>
+                <td colSpan={visibleColumns.length + (actions ? 1 : 0)}>
+                  <div className="empty">{emptyText}</div>
+                </td>
               </tr>
-            ))
-          )}
+            ) : (
+              pageRows.map((r) => (
+                <tr key={rowKey(r)} className={[onRowClick ? 'click' : '', rowClass ? rowClass(r) : ''].filter(Boolean).join(' ')} onClick={onRowClick ? () => onRowClick(r) : undefined}>
+                  {visibleColumns.map((c) => (
+                    <td key={c.key}>{c.render ? c.render(r) : c.get ? c.get(r) : ''}</td>
+                  ))}
+                  {actions ? (
+                    <td className="act" onClick={(e) => e.stopPropagation()}>
+                      {actions(r)}
+                    </td>
+                  ) : null}
+                </tr>
+              ))
+            )}
+          </tbody>
         </table>
       </div>
       <div className="dt-footer">
