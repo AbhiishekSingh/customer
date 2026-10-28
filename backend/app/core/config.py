@@ -18,6 +18,16 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_MB: int = 8
 
+    # Outbound email (SMTP). Left blank, real sending is skipped (logged, not an error) —
+    # this keeps local dev/tests working with no SMTP account, and makes it obvious in the
+    # logs if production is ever accidentally left unconfigured.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_LOGIN: str = ""
+    SMTP_PASSWORD: str = ""
+    MAIL_FROM_EMAIL: str = ""
+    MAIL_FROM_NAME: str = "Aditya Birla Group — Customer Follow-Up"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

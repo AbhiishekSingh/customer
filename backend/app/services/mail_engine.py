@@ -13,12 +13,22 @@ from app.core.security import random_token
 from app.models.customer import Contact, Customer
 from app.models.fabric import Fabric
 from app.models.mail import ItemFeedback, Mail, MailResponse, PastMailToken
+from app.core.config import settings as app_config
 from app.models.misc import Outbox
 from app.models.visit import Visit, VisitContact, VisitItem
+from app.services.email_sender import EmailSendError, send_email
 from app.services.mail_templates import get_template, render, validate_template
 from app.services.notify import notify_managers, notify_user
 from app.services.settings_service import next_working_day
 from app.models.enums import sv
+
+
+class MailSendFailed(Exception):
+    """Raised by send_mail() when SMTP is configured but the actual send failed. mail.status
+    is already set to 'send_failed' and the Outbox row recorded before this is raised, so the
+    attempt isn't lost — callers just decide how loudly to surface it (see routers/mails.py
+    for the manual "Send now" path, and scheduler_service.run_day for the batch path, which
+    catches this per-mail so one bad address doesn't stop the rest of the day's mails)."""
 
 MAIL_COUNT = 5
 
@@ -201,9 +211,24 @@ def send_mail(db: Session, vc: VisitContact, mail: Mail, send_date: date, settin
         contact_name=contact.name, customer_name=customer.name, visit_date=visit.date,
         items=items_text(db, vc), link=link, link_validity_hours=settings["link_validity_days"] * 24,
     )
+    # Outbox.body / the "View" preview keep the relative /r/<token> link as before (unchanged
+    # behavior). The actual outbound email needs an absolute, clickable URL though — a bare
+    # "/r/abc123" is useless once it's sitting in someone's inbox instead of this app's UI.
+    email_body = body.replace(link, f"{app_config.FRONTEND_URL}{link}")
+
+    send_error: str | None = None
+    try:
+        send_email(to_email=contact.email or "", subject=subject, body=email_body, cc=settings.get("marketing_cc"))
+    except EmailSendError as exc:
+        send_error = str(exc)
+        mail.status = "send_failed"
+
     db.add(Outbox(mail_id=mail.id, to_email=contact.email or "", cc=settings.get("marketing_cc"), subject=subject,
-                   body=body, status="sent", sent_at=send_date, customer_id=customer.id))
+                   body=body, status="send_failed" if send_error else "sent", sent_at=send_date,
+                   customer_id=customer.id))
     db.flush()
+    if send_error:
+        raise MailSendFailed(send_error)
     recompute(db, vc, settings)
     return mail
 

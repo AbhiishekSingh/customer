@@ -28,7 +28,11 @@ from app.schemas.auth import (
     TokenResponse,
 )
 from app.services.audit import audit
+from app.services.email_sender import EmailSendError, send_email
 from app.services.rate_limit import ip_is_rate_limited, record_ip_attempt
+import logging
+
+logger = logging.getLogger("abg.auth")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -126,7 +130,23 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
         )
         db.add(rec)
         db.commit()
-        # In production this is emailed, never returned in the API response.
+        reset_url = f"{cfg.FRONTEND_URL}/set-password?token={rec.token}"
+        try:
+            send_email(
+                to_email=user.email,
+                subject="Reset your Customer Follow-Up password",
+                body=(
+                    f"Hi {user.name},\n\n"
+                    "A password reset was requested for your account.\n\n"
+                    f"Reset your password here (valid for {cfg.RESET_TOKEN_MINUTES} minutes):\n"
+                    f"{reset_url}\n\n"
+                    "If you didn't request this, you can safely ignore this email."
+                ),
+            )
+        except EmailSendError:
+            # Never let an SMTP hiccup reveal whether the account exists, or break the
+            # endpoint — just log it so whoever configured email notices the failure.
+            logger.exception("Failed to send password-reset email to %s", user.email)
     return {"ok": True, "message": "If that email exists, a reset link has been sent."}
 
 

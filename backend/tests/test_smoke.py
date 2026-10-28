@@ -756,3 +756,38 @@ def test_send_now_shows_draft_and_allows_one_off_edit_before_sending(client, vis
     r = client.post(f"/mails/{mail3['id']}/send-now", headers=design_h, json={"subject": "x", "body": "no link in here"})
     assert r.status_code == 422, r.text
 
+
+def test_send_now_surfaces_smtp_failure_and_allows_retry(client, visit_setup, monkeypatch):
+    """When real SMTP is configured but the send itself fails (bad creds, network, etc.), the
+    manual 'Send now' call must return a clear error (not pretend it worked) and the mail must
+    stay retry-able — not get stuck in limbo. See app/services/email_sender.py / mail_engine.py."""
+    import app.services.mail_engine as mail_engine
+
+    design_h = visit_setup["design_h"]
+    mails = client.get(f"/visits/{visit_setup['visit']['id']}/mails", headers=design_h).json()
+    mail4 = next(m for m in mails if m["mail_number"] == 4)
+
+    def boom(**kwargs):
+        raise mail_engine.EmailSendError("535 authentication failed")
+
+    monkeypatch.setattr(mail_engine, "send_email", boom)
+
+    r = client.post(f"/mails/{mail4['id']}/send-now", headers=design_h)
+    assert r.status_code == 422, r.text
+    assert "authentication failed" in r.text
+
+    mails = client.get(f"/visits/{visit_setup['visit']['id']}/mails", headers=design_h).json()
+    mail4 = next(m for m in mails if m["mail_number"] == 4)
+    assert mail4["status"] == "send_failed"
+
+    # still retry-able: postpone/skip accept it like a normal scheduled mail...
+    r = client.post(f"/mails/{mail4['id']}/postpone", headers=design_h,
+                     params={"new_due_date": str(date.today() + timedelta(days=3)), "reason": "retry later"})
+    assert r.status_code == 200, r.text
+
+    # ...and once SMTP works again, "Send now" succeeds normally.
+    monkeypatch.undo()
+    r = client.post(f"/mails/{mail4['id']}/send-now", headers=design_h)
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "sent"
+

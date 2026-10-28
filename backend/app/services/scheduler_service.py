@@ -9,7 +9,7 @@ from app.models.customer import Customer
 from app.models.mail import Mail
 from app.models.misc import SystemSettings
 from app.models.visit import Visit, VisitContact
-from app.services.mail_engine import mail_blocked_by_c, send_mail
+from app.services.mail_engine import MailSendFailed, mail_blocked_by_c, send_mail
 from app.services.settings_service import get_settings
 from app.models.enums import sv
 
@@ -25,7 +25,7 @@ def run_day(db: Session, target_date: date) -> dict:
         return {"skipped": True, "reason": "already ran for this date"}
 
     settings = get_settings(db)
-    sent, skipped_c, held = 0, 0, 0
+    sent, skipped_c, held, failed = 0, 0, 0, 0
 
     due_mails = db.scalars(
         select(Mail).where(Mail.status == "scheduled", Mail.due_date <= target_date)
@@ -46,8 +46,13 @@ def run_day(db: Session, target_date: date) -> dict:
             mail.note = "Blacklist C — new collection not offered"
             skipped_c += 1
             continue
-        send_mail(db, vc, mail, target_date, settings)
-        sent += 1
+        try:
+            send_mail(db, vc, mail, target_date, settings)
+            sent += 1
+        except MailSendFailed:
+            # mail.status is already 'send_failed' and staged on the session (see mail_engine) —
+            # one bad/unreachable address must not stop the rest of today's mails from going out.
+            failed += 1
 
     if not row:
         from app.models.misc import SystemSettings as _S
@@ -63,4 +68,4 @@ def run_day(db: Session, target_date: date) -> dict:
     bl = evaluate_blacklists(db, target_date)
 
     db.commit()
-    return {"skipped": False, "sent": sent, "blacklist_c_skipped": skipped_c, "held_for_bounce": held, "blacklist_eval": bl}
+    return {"skipped": False, "sent": sent, "failed": failed, "blacklist_c_skipped": skipped_c, "held_for_bounce": held, "blacklist_eval": bl}

@@ -338,7 +338,7 @@ export default function VisitContactDetail() {
                   )}
                 </td>
                 <td className="act">
-                  {m.status === 'scheduled' && !onHold ? (
+                  {(m.status === 'scheduled' || m.status === 'send_failed') && !onHold ? (
                     <>
                       <button className="btn sm" disabled={busyMail === m.id} onClick={() => setSendNowMail(m)} type="button">
                         Send now
@@ -356,7 +356,7 @@ export default function VisitContactDetail() {
                       Undo
                     </button>
                   ) : null}
-                  {m.status === 'scheduled' || m.status === 'sent' ? (
+                  {m.status === 'scheduled' || m.status === 'sent' || m.status === 'send_failed' ? (
                     <button className="btn sm" onClick={() => setContentMail(m)} type="button">
                       View
                     </button>

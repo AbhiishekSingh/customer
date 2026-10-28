@@ -31,6 +31,7 @@ export function mailState(mail) {
   if (mail.status === 'sent' && mail.responses && mail.responses.length) return { k: 'resp', t: 'Replied', c: 'p-ok' }
   if (mail.status === 'sent') return { k: 'sent', t: 'Sent, no reply yet', c: 'p-info' }
   if (mail.status === 'bounced') return { k: 'bounce', t: 'Bounced', c: 'p-bad' }
+  if (mail.status === 'send_failed') return { k: 'failed', t: 'Send failed — retry below', c: 'p-bad' }
   if (mail.status === 'skipped') return { k: 'skip', t: 'Not needed', c: 'p-mute' }
   return { k: 'scheduled', t: 'Planned', c: 'p-mute' }
 }

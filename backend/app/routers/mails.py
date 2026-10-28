@@ -14,7 +14,7 @@ from app.models.user import User
 from app.models.visit import Visit, VisitContact
 from app.schemas.mail import MailOut, ManualResponseIn, SendNowIn
 from app.services.audit import audit
-from app.services.mail_engine import apply_response, mail_blocked_by_c, send_mail
+from app.services.mail_engine import MailSendFailed, apply_response, mail_blocked_by_c, send_mail
 from app.services.scheduler_service import on_hold, run_day
 from app.services.settings_service import get_settings
 from app.models.enums import sv
@@ -69,7 +69,7 @@ def get_mail_draft(mail_id: uuid.UUID, db: Session = Depends(get_db), user: User
 @router.post("/mails/{mail_id}/send-now", response_model=MailOut)
 def send_now(mail_id: uuid.UUID, payload: SendNowIn | None = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> Mail:
     mail, vc, visit = _owned_mail(db, user, mail_id)
-    if sv(mail.status) != "scheduled":
+    if sv(mail.status) not in ("scheduled", "send_failed"):
         raise validation_error("This mail is not awaiting send")
     if on_hold(db, vc.id):
         raise validation_error("Follow-up for this contact is paused — a previous mail bounced")
@@ -77,8 +77,14 @@ def send_now(mail_id: uuid.UUID, payload: SendNowIn | None = None, db: Session =
     settings = get_settings(db)
     if mail_blocked_by_c(vc, mail, customer):
         raise validation_error(f"{customer.name} is Blacklist C — new collection not offered")
-    send_mail(db, vc, mail, date.today(), settings,
-              subject_override=payload.subject if payload else None, body_override=payload.body if payload else None)
+    try:
+        send_mail(db, vc, mail, date.today(), settings,
+                  subject_override=payload.subject if payload else None, body_override=payload.body if payload else None)
+    except MailSendFailed as exc:
+        # mail/Outbox are already marked send_failed and staged on the session — commit that
+        # so it's visible in the UI, then surface the real reason instead of pretending it sent.
+        db.commit()
+        raise validation_error(f"Email could not be sent: {exc}")
     audit(db, user_id=user.id, action="send_mail_now", entity_type="mail", entity_id=mail.id)
     db.commit()
     return mail
@@ -162,7 +168,7 @@ def postpone_mail(mail_id: uuid.UUID, new_due_date: date, reason: str, db: Sessi
     mail's due date on the next scheduler/response-driven recompute — the same mechanism already
     used to pin Mail 5 after an order lands (mail_engine.derive_outcome)."""
     mail, vc, visit = _owned_mail(db, user, mail_id)
-    if sv(mail.status) != "scheduled":
+    if sv(mail.status) not in ("scheduled", "send_failed"):
         raise validation_error("Only a scheduled (not yet sent) mail can be postponed")
     if new_due_date <= date.today():
         raise validation_error("Pick a date in the future")
@@ -182,7 +188,7 @@ def skip_mail(mail_id: uuid.UUID, reason: str, db: Session = Depends(get_db), us
     """Staff 'Don't send' action — a manual skip, distinct from the system's own auto_skip/c_skip
     flags, so the order/closure-driven restore logic in derive_outcome() never silently reopens it."""
     mail, vc, visit = _owned_mail(db, user, mail_id)
-    if sv(mail.status) != "scheduled":
+    if sv(mail.status) not in ("scheduled", "send_failed"):
         raise validation_error("Only a scheduled (not yet sent) mail can be skipped")
     reason = (reason or "").strip()
     if not reason:
