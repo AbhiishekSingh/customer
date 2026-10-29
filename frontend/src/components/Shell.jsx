@@ -201,7 +201,11 @@ export default function Shell({ children }) {
           <div className="grow"></div>
           <NotificationBell />
           <label className="who">
-            {user?.name} · {roleLabel}
+            <span className="avatar">{(user?.name || '?').trim().charAt(0).toUpperCase()}</span>
+            <span className="who-tx">
+              <b>{user?.name}</b>
+              <span>{roleLabel}</span>
+            </span>
             <button className="btn sm ghost" type="button" onClick={logout}>
               Sign out
             </button>

@@ -70,7 +70,10 @@ def list_outbox(
             c = db.get(Customer, visit.customer_id) if visit else None
             company = c.name if c else None
         out.append({
-            "id": str(e.id), "date": e.sent_at.isoformat() if e.sent_at else None, "company": company,
+            # created_at (a real timezone-aware timestamp set at the moment this email was sent)
+            # is used here, not sent_at — sent_at is date-only (no time-of-day at all), so every
+            # row used to render as the same fake midnight-UTC time once converted to local time.
+            "id": str(e.id), "date": e.created_at.isoformat() if e.created_at else (e.sent_at.isoformat() if e.sent_at else None), "company": company,
             "to": e.to_email, "cc": e.cc, "subject": e.subject, "type": etype,
             "delivered": e.status.value != "bounced",
             "mail_id": str(e.mail_id) if e.mail_id else None,
@@ -99,7 +102,7 @@ def get_outbox_entry(outbox_id: uuid.UUID, db: Session = Depends(get_db), user: 
         if not visible:
             raise forbidden("Not allowed")
     return {
-        "id": str(e.id), "date": e.sent_at.isoformat() if e.sent_at else None, "to": e.to_email,
+        "id": str(e.id), "date": e.created_at.isoformat() if e.created_at else (e.sent_at.isoformat() if e.sent_at else None), "to": e.to_email,
         "cc": e.cc, "subject": e.subject, "body": e.body, "type": _outbox_type(e),
         "delivered": e.status.value != "bounced",
     }
