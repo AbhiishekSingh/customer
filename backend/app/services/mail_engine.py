@@ -174,7 +174,7 @@ def items_text(db: Session, vc: VisitContact) -> str:
 
 
 def send_mail(db: Session, vc: VisitContact, mail: Mail, send_date: date, settings: dict, resend: bool = False,
-              subject_override: str | None = None, body_override: str | None = None) -> Mail:
+              subject_override: str | None = None, body_override: str | None = None, extra_cc: str | None = None) -> Mail:
     if mail.mail_number == 5 and sv(mail.status) == "scheduled":
         mail.variant = "ordered" if vc.order_placed else "notordered"
     if mail.token:
@@ -216,14 +216,19 @@ def send_mail(db: Session, vc: VisitContact, mail: Mail, send_date: date, settin
     # "/portal/abc123" is useless once it's sitting in someone's inbox instead of this app's UI.
     email_body = body.replace(link, f"{app_config.FRONTEND_URL}{link}")
 
+    # Extra recipient is additive — it rides along as an extra cc on top of the configured
+    # marketing cc, never replacing the customer's own To: address or the marketing cc.
+    cc_parts = [c for c in [settings.get("marketing_cc"), extra_cc] if c]
+    cc = ", ".join(cc_parts) if cc_parts else None
+
     send_error: str | None = None
     try:
-        send_email(to_email=contact.email or "", subject=subject, body=email_body, cc=settings.get("marketing_cc"))
+        send_email(to_email=contact.email or "", subject=subject, body=email_body, cc=cc)
     except EmailSendError as exc:
         send_error = str(exc)
         mail.status = "send_failed"
 
-    db.add(Outbox(mail_id=mail.id, to_email=contact.email or "", cc=settings.get("marketing_cc"), subject=subject,
+    db.add(Outbox(mail_id=mail.id, to_email=contact.email or "", cc=cc, subject=subject,
                    body=body, status="send_failed" if send_error else "sent", sent_at=send_date,
                    customer_id=customer.id))
     db.flush()

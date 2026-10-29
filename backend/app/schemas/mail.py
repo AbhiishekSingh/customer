@@ -19,6 +19,9 @@ class SendNowIn(BaseModel):
     Leaving both out sends exactly what the template renders, same as before."""
     subject: str | None = None
     body: str | None = None
+    # Extra recipient for just this one send (e.g. a colleague, a second contact) — added
+    # alongside the customer's own email and the configured marketing cc, never replacing either.
+    extra_email: str | None = None
 
 
 class ManualResponseIn(BaseModel):

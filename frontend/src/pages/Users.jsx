@@ -34,6 +34,16 @@ export default function Users() {
     }
   }
 
+  async function activate(u) {
+    try {
+      await api.patch(`/users/${u.id}`, { is_active: true })
+      toast('User activated')
+      reload()
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+
   async function changeRole(u, role) {
     if (role === u.role) return
     setRoleBusy(u.id)
@@ -102,7 +112,11 @@ export default function Users() {
                   <button className="btn sm danger" onClick={() => deactivate(u)} type="button">
                     Deactivate
                   </button>
-                ) : null}
+                ) : (
+                  <button className="btn sm" onClick={() => activate(u)} type="button">
+                    Activate
+                  </button>
+                )}
               </td>
             </tr>
           ))}

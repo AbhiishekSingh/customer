@@ -66,10 +66,10 @@ export default function VisitContactDetail() {
     }
   }
 
-  async function doSendNow(mailId, subject, body) {
+  async function doSendNow(mailId, subject, body, extraEmail) {
     setBusyMail(mailId)
     try {
-      await api.post(`/mails/${mailId}/send-now`, { subject, body })
+      await api.post(`/mails/${mailId}/send-now`, { subject, body, extra_email: extraEmail || null })
       toast('Email sent')
       setSendNowMail(null)
       reload()
@@ -519,6 +519,7 @@ function SendNowModal({ mail, busy, onClose, onSend }) {
   const { data, error, loading } = useApi(() => api.get(`/mails/${mail.id}/draft`), [mail.id])
   const [subject, setSubject] = useState(null)
   const [body, setBody] = useState(null)
+  const [extraEmail, setExtraEmail] = useState('')
 
   if (!loading && !error && data && subject === null) {
     setSubject(data.subject)
@@ -527,7 +528,8 @@ function SendNowModal({ mail, busy, onClose, onSend }) {
 
   const linkCount = body ? (body.match(/\{link\}/g) || []).length : 0
   const linkOk = linkCount === 1
-  const canSend = !!(subject && subject.trim() && body && body.trim() && linkOk)
+  const extraEmailOk = !extraEmail.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extraEmail.trim())
+  const canSend = !!(subject && subject.trim() && body && body.trim() && linkOk && extraEmailOk)
 
   return (
     <Modal
@@ -539,7 +541,7 @@ function SendNowModal({ mail, busy, onClose, onSend }) {
           <button className="btn" onClick={onClose} type="button">
             Cancel
           </button>
-          <button className="btn primary" disabled={!canSend || busy} onClick={() => onSend(mail.id, subject, body)} type="button">
+          <button className="btn primary" disabled={!canSend || busy} onClick={() => onSend(mail.id, subject, body, extraEmail.trim())} type="button">
             {busy ? 'Sending…' : 'Send email'}
           </button>
         </>
@@ -567,6 +569,10 @@ function SendNowModal({ mail, busy, onClose, onSend }) {
           {!linkOk ? (
             <ErrBox message={linkCount === 0 ? 'The body must include {link} — without it the customer has no way to respond.' : '{link} can only appear once in the body.'} />
           ) : null}
+          <Field label="Add another recipient" hint="Optional — cc'd on this send only, in addition to the customer's email above. Doesn't change the customer's own email.">
+            <input type="email" placeholder="someone@example.com" value={extraEmail} onChange={(e) => setExtraEmail(e.target.value)} />
+          </Field>
+          {!extraEmailOk ? <ErrBox message="Enter a valid email address, or leave this blank." /> : null}
         </>
       )}
     </Modal>

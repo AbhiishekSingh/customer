@@ -77,9 +77,15 @@ def send_now(mail_id: uuid.UUID, payload: SendNowIn | None = None, db: Session =
     settings = get_settings(db)
     if mail_blocked_by_c(vc, mail, customer):
         raise validation_error(f"{customer.name} is Blacklist C — new collection not offered")
+    extra_email = (payload.extra_email or "").strip() if payload else ""
+    if extra_email:
+        from app.utils import is_valid_email
+        if not is_valid_email(extra_email):
+            raise validation_error("Enter a valid extra email address")
     try:
         send_mail(db, vc, mail, date.today(), settings,
-                  subject_override=payload.subject if payload else None, body_override=payload.body if payload else None)
+                  subject_override=payload.subject if payload else None, body_override=payload.body if payload else None,
+                  extra_cc=extra_email or None)
     except MailSendFailed as exc:
         # mail/Outbox are already marked send_failed and staged on the session — commit that
         # so it's visible in the UI, then surface the real reason instead of pretending it sent.
