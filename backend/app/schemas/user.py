@@ -32,11 +32,13 @@ class UserOut(BaseModel):
 
 class UserCreateOut(UserOut):
     """Returned only from POST /users, to the admin who just created the account. Carries the
-    one-time invite link so the admin can hand it to the new user directly (e.g. paste into chat
-    or email themselves) until real SMTP sending is wired up — never shown anywhere else, and
-    never on a plain GET /users listing."""
+    one-time invite link as a fallback the admin can hand to the new user directly (paste into
+    chat, email themselves, etc.) — used automatically when invite_emailed is False, i.e. SMTP
+    isn't configured or the send itself failed. Never shown anywhere else, and never on a plain
+    GET /users listing."""
 
     invite_link: str
+    invite_emailed: bool
 
 
 class UserDirectoryEntry(BaseModel):

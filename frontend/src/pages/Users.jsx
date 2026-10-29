@@ -235,9 +235,15 @@ function InviteLinkModal({ user, onClose }) {
         Done
       </button>
     }>
-      <p className="hint" style={{ marginTop: 0 }}>
-        Email sending isn't set up yet, so there's no automatic invite email. Copy this link and send it to {user.name} yourself (chat, email, whatever works) — it lets them set their own password. It stays valid for a limited time.
-      </p>
+      {user.invite_emailed ? (
+        <p className="hint" style={{ marginTop: 0 }}>
+          An invite email was sent to <b>{user.email}</b> — it lets them set their own password and stays valid for a limited time. You can also copy the link below yourself if you'd rather send it another way (chat, etc.).
+        </p>
+      ) : (
+        <p className="hint" style={{ marginTop: 0 }}>
+          The invite email couldn't be sent (email sending may not be configured, or the send failed) — copy this link and send it to {user.name} yourself (chat, email, whatever works) instead. It lets them set their own password and stays valid for a limited time.
+        </p>
+      )}
       <div className="field">
         <label>One-time invite link</label>
         <input readOnly value={user.invite_link} onFocus={(e) => e.target.select()} />

@@ -11,8 +11,12 @@ from app.core.security import random_token
 from app.models.user import PasswordResetToken, User
 from app.schemas.user import UserCreate, UserCreateOut, UserOut, UserUpdate
 from app.services.audit import audit
+from app.services.email_sender import EmailSendError, email_configured, send_email
 from datetime import datetime, timedelta, timezone
 from app.core.config import settings as cfg
+import logging
+
+logger = logging.getLogger("abg.users")
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
 
@@ -39,10 +43,29 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), admin: User 
     db.add(rec)
     audit(db, user_id=admin.id, action="create_user", entity_type="user", entity_id=user.id, detail={"email": user.email, "role": user.role.value})
     db.commit()
-    # No email service wired up yet: hand the one-time invite link straight back to the admin who
-    # created the account (this endpoint is admin-only already) so they can pass it on themselves.
+
     invite_link = f"{cfg.FRONTEND_URL}/set-password?token={rec.token}"
-    return {**UserOut.model_validate(user).model_dump(), "invite_link": invite_link}
+    invite_emailed = False
+    if email_configured():
+        try:
+            send_email(
+                to_email=user.email,
+                subject="Set your password — Customer Follow-Up",
+                body=(
+                    f"Hi {user.name},\n\n"
+                    "An account has been created for you on the Customer Follow-Up system.\n\n"
+                    f"Set your password here (valid for {cfg.RESET_TOKEN_MINUTES * 48 // 60} hours):\n"
+                    f"{invite_link}\n\n"
+                    "If you weren't expecting this, you can ignore this email."
+                ),
+            )
+            invite_emailed = True
+        except EmailSendError:
+            # Fall back to the link shown in the UI — don't block account creation over it.
+            logger.exception("Failed to send invite email to %s", user.email)
+    # Always hand the link back too, regardless of whether the email went out — covers SMTP
+    # not being configured yet, a failed send, or the admin just wanting to share it directly.
+    return {**UserOut.model_validate(user).model_dump(), "invite_link": invite_link, "invite_emailed": invite_emailed}
 
 
 @router.patch("/{user_id}", response_model=UserOut)

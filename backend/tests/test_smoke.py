@@ -8,6 +8,7 @@ already migrated and seeded:
 Each test creates its own uniquely-named customer/fabric so the suite is safe to re-run against
 the same shared database without manual cleanup (no dedicated per-test transaction/rollback is
 set up here — that's a reasonable next step, not a blocker for this smoke pass)."""
+import re
 import uuid
 from datetime import date, timedelta
 
@@ -715,7 +716,7 @@ def test_mail_template_edit_is_used_on_actual_send_and_reset_restores_default(cl
     content = client.get(f"/mails/{mail1['id']}/content", headers=design_h).json()
     assert "CUSTOM SUBJECT for" in content["subject"]
     assert "custom body" in content["body"]
-    assert "Link: /r/" in content["body"]  # {link} substituted with the real token link
+    assert "Link: /portal/" in content["body"]  # {link} substituted with the real token link
 
     # reset restores the seeded default, used by subsequent previews/sends
     r = client.post("/mail-templates/1/none/reset", headers=admin_h)
@@ -743,7 +744,7 @@ def test_send_now_shows_draft_and_allows_one_off_edit_before_sending(client, vis
     content = client.get(f"/mails/{mail2['id']}/content", headers=design_h).json()
     assert content["subject"] == "One-off subject"
     assert "one-off wording for this send only" in content["body"]
-    assert "/r/" in content["body"]  # {link} still correctly substituted with the real token
+    assert "/portal/" in content["body"]  # {link} still correctly substituted with the real token
 
     # the SAVED template for Mail 2 is untouched by that one-off edit
     templates = client.get("/mail-templates", headers=design_h).json()
@@ -790,4 +791,30 @@ def test_send_now_surfaces_smtp_failure_and_allows_retry(client, visit_setup, mo
     r = client.post(f"/mails/{mail4['id']}/send-now", headers=design_h)
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "sent"
+
+
+def test_followup_link_in_the_actual_email_resolves_through_the_real_public_portal_route(client, visit_setup):
+    """Regression test for a real bug: the link put into every follow-up email used to be built
+    as "/r/<token>", but the actual no-login customer page lives at "/portal/<token>" (see
+    frontend App.jsx and this file's /portal/{token} router) — "/r/..." matched no frontend
+    route at all, so a customer clicking the email link landed on the login page instead of
+    their response form. This pins the link format to the route that's actually wired up, and
+    proves the exact token from a sent mail resolves on the real, unauthenticated portal
+    endpoint — not just that *a* link-shaped string appears somewhere in the email body."""
+    design_h = visit_setup["design_h"]
+    mails = client.get(f"/visits/{visit_setup['visit']['id']}/mails", headers=design_h).json()
+    mail1 = next(m for m in mails if m["mail_number"] == 1)
+
+    r = client.post(f"/mails/{mail1['id']}/send-now", headers=design_h)
+    assert r.status_code == 200, r.text
+
+    content = client.get(f"/mails/{mail1['id']}/content", headers=design_h).json()
+    m = re.search(r"/portal/([A-Za-z0-9_-]+)", content["body"])
+    assert m, f"no /portal/<token> link found in the sent mail's body: {content['body']!r}"
+    token = m.group(1)
+
+    # the exact token from the email must resolve on the real public endpoint, with no auth
+    r = client.get(f"/portal/{token}")
+    assert r.status_code == 200, r.text
+    assert r.json()["state"] not in ("not_found", "superseded")
 

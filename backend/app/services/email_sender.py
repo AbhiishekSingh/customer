@@ -25,8 +25,15 @@ class EmailSendError(Exception):
     recipient, etc.). Not raised when SMTP simply isn't configured — see module docstring."""
 
 
+def email_configured() -> bool:
+    """True once SMTP_* / MAIL_FROM_EMAIL are all set in .env. Lets a caller decide up front
+    whether to even try (e.g. the user-invite flow, which falls back to showing the admin a
+    copyable link when there's no point attempting a send)."""
+    return bool(settings.SMTP_HOST and settings.SMTP_LOGIN and settings.SMTP_PASSWORD and settings.MAIL_FROM_EMAIL)
+
+
 def send_email(to_email: str, subject: str, body: str, cc: str | None = None) -> None:
-    if not settings.SMTP_HOST or not settings.SMTP_LOGIN or not settings.SMTP_PASSWORD or not settings.MAIL_FROM_EMAIL:
+    if not email_configured():
         logger.warning("SMTP not configured — skipping real send to %s (subject: %r)", to_email, subject)
         return
 

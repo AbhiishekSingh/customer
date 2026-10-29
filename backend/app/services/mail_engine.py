@@ -205,15 +205,15 @@ def send_mail(db: Session, vc: VisitContact, mail: Mail, send_date: date, settin
         validate_template(template.subject, template.body)
     else:
         template = get_template(db, mail.mail_number, mail.variant)
-    link = f"/r/{mail.token}"
+    link = f"/portal/{mail.token}"
     subject, body = render(
         template,
         contact_name=contact.name, customer_name=customer.name, visit_date=visit.date,
         items=items_text(db, vc), link=link, link_validity_hours=settings["link_validity_days"] * 24,
     )
-    # Outbox.body / the "View" preview keep the relative /r/<token> link as before (unchanged
+    # Outbox.body / the "View" preview keep the relative /portal/<token> link as before (unchanged
     # behavior). The actual outbound email needs an absolute, clickable URL though — a bare
-    # "/r/abc123" is useless once it's sitting in someone's inbox instead of this app's UI.
+    # "/portal/abc123" is useless once it's sitting in someone's inbox instead of this app's UI.
     email_body = body.replace(link, f"{app_config.FRONTEND_URL}{link}")
 
     send_error: str | None = None
