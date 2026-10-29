@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { api, API_BASE } from '../api/client'
+import Icon from './Icon'
 
 /** Turn whatever the backend/DB has stored into something a browser can load.
  *  - our own uploads come back as "/uploads/xxx.jpg" → needs the /api proxy prefix
@@ -53,7 +54,7 @@ export default function ImageUpload({ value, onChange, uploadUrl = '/uploads', a
           )}
         </div>
         <button type="button" className="btn ghost sm" onClick={() => onChange('')}>
-          ✕ Remove
+          <Icon name="x" size={13} /> Remove
         </button>
       </div>
     )
@@ -63,7 +64,7 @@ export default function ImageUpload({ value, onChange, uploadUrl = '/uploads', a
     <div className="img-upload">
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: 'none' }} onChange={handleFile} />
       <button type="button" className="btn sm" disabled={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? 'Uploading…' : `📷 ${label}`}
+        {busy ? 'Uploading…' : <><Icon name="camera" size={13} /> {label}</>}
       </button>
       {err ? <div className="err-box">{err}</div> : null}
     </div>

@@ -5,6 +5,7 @@ import { useApi } from '../api/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { PageHead, ErrBox, Field, Loading, onlyDigits, cleanPhone } from '../components/ui'
+import Icon from '../components/Icon'
 
 const BLANK_CONTACT = () => ({ team_name: '', name: '', designation: '', email: '', phone: '', primary: false, senior: false })
 
@@ -195,8 +196,8 @@ export default function NewCustomer() {
                 <input type="checkbox" checked={c.senior} onChange={(e) => updateContact(i, 'senior', e.target.checked)} /> Senior
               </label>
               {contacts.length > 1 ? (
-                <button type="button" className="btn ghost sm" onClick={() => removeContact(i)}>
-                  ✕
+                <button type="button" className="btn ghost sm icon-btn" onClick={() => removeContact(i)} title="Remove contact">
+                  <Icon name="x" size={13} />
                 </button>
               ) : null}
             </div>

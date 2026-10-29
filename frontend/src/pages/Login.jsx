@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ErrBox } from '../components/ui'
+import Icon from '../components/Icon'
 
 const ROLES = [
-  { key: 'design', label: 'Design', ic: '✎' },
-  { key: 'manager', label: 'Manager', ic: '◉' },
-  { key: 'admin', label: 'Admin', ic: '⚙' },
-  { key: 'top', label: 'Top Mgmt', ic: '★' },
+  { key: 'design', label: 'Design', ic: 'edit-pencil' },
+  { key: 'manager', label: 'Manager', ic: 'user-check' },
+  { key: 'admin', label: 'Admin', ic: 'settings' },
+  { key: 'top', label: 'Top Mgmt', ic: 'star' },
 ]
 
 export default function Login() {
@@ -56,7 +57,7 @@ export default function Login() {
                 className={'role-chip' + (role === r.key ? ' active' : '')}
                 onClick={() => setRole(r.key)}
               >
-                <span className="ic">{r.ic}</span>
+                <span className="ic"><Icon name={r.ic} size={16} /></span>
                 {r.label}
               </button>
             ))}

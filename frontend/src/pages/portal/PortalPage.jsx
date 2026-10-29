@@ -241,7 +241,7 @@ function ResponseForm({ token, status, onDone }) {
                 {already ? (
                   <div style={{ gridColumn: '1 / -1' }}>
                     <p className="hint" style={{ margin: '4px 0' }}>
-                      ✓ Already logged: {it.sentiment === 'Positive' ? '👍 Good' : it.sentiment === 'Negative' ? '👎 Issue' : it.sentiment === 'Neutral' ? '😐 Okay' : '—'}
+                      Already logged: {it.sentiment === 'Positive' ? 'Good' : it.sentiment === 'Negative' ? 'Issue' : it.sentiment === 'Neutral' ? 'Okay' : '—'}
                       {it.feedback_text ? ` — "${it.feedback_text}"` : ''}
                       {it.attachment_url ? (
                         <>
@@ -262,9 +262,9 @@ function ResponseForm({ token, status, onDone }) {
                     <div className="row">
                       <select style={{ width: 'auto' }} value={items[it.visit_item_id]?.sentiment || ''} onChange={(e) => updateItem(it.visit_item_id, 'sentiment', e.target.value)}>
                         <option value="">— rate —</option>
-                        <option value="Positive">👍 Good</option>
-                        <option value="Neutral">😐 Okay</option>
-                        <option value="Negative">👎 Issue</option>
+                        <option value="Positive">Good</option>
+                        <option value="Neutral">Okay</option>
+                        <option value="Negative">Issue</option>
                       </select>
                       {n === 3 ? (
                         <select

@@ -4,6 +4,7 @@ import { useApi } from '../api/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { PageHead, Panel, Pill, Loading, ErrBox } from '../components/ui'
+import Icon from '../components/Icon'
 
 const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
 
@@ -142,7 +143,7 @@ function CountriesStates({ canEdit, countryCounts, stateCounts }) {
             return (
               <div className={'crow' + (isOpen ? ' open' : '')} key={c.id}>
                 <div className="ch" onClick={() => setOpen((o) => ({ ...o, [c.id]: !o[c.id] }))}>
-                  <span className="car">▸</span>
+                  <Icon name="chevron-right" size={11} className="car" />
                   <b>{c.name}</b>
                   <Pill text={c.status === 'active' ? 'Active' : 'Inactive'} cls={c.status === 'active' ? 'p-ok' : 'p-bad'} />
                   <span className="hint">{c.states.length} state{c.states.length === 1 ? '' : 's'}</span>

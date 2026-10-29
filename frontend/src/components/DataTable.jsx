@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Icon from './Icon'
 
 const OPS_BY_TYPE = {
   number: [['eq', '='], ['neq', '≠'], ['gt', '>'], ['gte', '≥'], ['lt', '<'], ['lte', '≤']],
@@ -173,7 +174,7 @@ export default function DataTable({
           {total} row(s){total !== rows.length ? ` of ${rows.length}` : ''}
         </span>
         <button className="btn sm" onClick={exportCsv} type="button">
-          Export ⬇
+          <Icon name="download" size={13} /> Export
         </button>
       </div>
 
@@ -239,8 +240,8 @@ export default function DataTable({
                   onChange={(e) => updateFilter(f.id, { value: e.target.value })}
                   placeholder="Value"
                 />
-                <button className="btn ghost sm" onClick={() => removeFilter(f.id)} type="button">
-                  ✕
+                <button className="btn ghost sm icon-btn" onClick={() => removeFilter(f.id)} type="button" title="Remove filter">
+                  <Icon name="x" size={13} />
                 </button>
               </div>
             )

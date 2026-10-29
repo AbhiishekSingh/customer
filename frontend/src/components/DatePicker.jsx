@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Icon from './Icon'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -137,7 +138,7 @@ export default function DatePicker({ value, onChange, min, max, required, disabl
         onClick={() => setOpen((o) => !o)}
         aria-label="Open calendar"
       >
-        📅
+        <Icon name="calendar" size={14} />
       </button>
       {open && !disabled ? (
         <div className="dp-pop">

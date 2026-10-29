@@ -1,3 +1,5 @@
+import Icon from './Icon'
+
 // Keep only digits, capped at `max` characters (use for pincode etc.)
 export function onlyDigits(s, max) {
   const d = String(s ?? '').replace(/\D/g, '')
@@ -71,8 +73,8 @@ export function Modal({ title, onClose, footer, wide, children }) {
       <div className={'modal' + (wide ? ' wide' : '')}>
         <div className="modal-h">
           <h2>{title}</h2>
-          <button className="btn ghost sm" onClick={onClose} type="button">
-            ✕
+          <button className="btn ghost sm icon-btn" onClick={onClose} type="button" title="Close">
+            <Icon name="x" size={15} />
           </button>
         </div>
         <div className="modal-b">{children}</div>

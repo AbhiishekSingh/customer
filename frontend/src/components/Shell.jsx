@@ -3,31 +3,32 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { fmtDateTime } from './ui'
+import Icon from './Icon'
 
-const NAV_HOME = ['/dashboard', 'Home', '⌂']
+const NAV_HOME = ['/dashboard', 'Home', 'home']
 const NAV = [
   {
     id: 'masters',
     label: 'Masters',
     items: [
-      ['/customers', 'Customers', '◎'],
-      ['/fabrics', 'Items', '▦'],
-      ['/categories', 'Categories', '≡'],
-      ['/users', 'Users & roles', '☺', 'admin'],
+      ['/customers', 'Customers', 'users'],
+      ['/fabrics', 'Items', 'grid'],
+      ['/categories', 'Categories', 'list'],
+      ['/users', 'Users & roles', 'shield', 'admin'],
     ],
   },
   {
     id: 'ops',
     label: 'Operations',
     items: [
-      ['/entry', 'Customer Visit Entry', '＋'],
-      ['/visits', 'Follow-ups', '✉'],
-      ['/register', 'Swatch Register', '▥'],
+      ['/entry', 'Customer Visit Entry', 'plus'],
+      ['/visits', 'Follow-ups', 'mail'],
+      ['/register', 'Swatch Register', 'layers'],
     ],
   },
-  { id: 'gov', label: 'Governance', items: [['/blacklist', 'Blacklist', '⚑', 'mgr'], ['/outbox', 'Sent Emails', '☰']] },
-  { id: 'insights', label: 'Insights', role: 'mgr', items: [['/reports', 'Reports', '▤'], ['/activity', 'Activity log', '✎']] },
-  { id: 'admin', label: 'Admin', role: 'admin', items: [['/settings', 'Settings', '⚙']] },
+  { id: 'gov', label: 'Governance', items: [['/blacklist', 'Blacklist', 'flag', 'mgr'], ['/outbox', 'Sent Emails', 'send']] },
+  { id: 'insights', label: 'Insights', role: 'mgr', items: [['/reports', 'Reports', 'bar-chart'], ['/activity', 'Activity log', 'activity']] },
+  { id: 'admin', label: 'Admin', role: 'admin', items: [['/settings', 'Settings', 'settings']] },
 ]
 
 function isMgr(role) {
@@ -85,13 +86,13 @@ function NotificationBell() {
   return (
     <div className="bell-wrap" ref={ref} style={{ position: 'relative' }}>
       <button
-        className="btn sm ghost"
+        className="btn sm ghost icon-btn"
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Notifications"
         style={{ position: 'relative' }}
       >
-        🔔
+        <Icon name="bell" size={17} />
         {unread ? <span className="badge hot">{unread > 9 ? '9+' : unread}</span> : null}
       </button>
       {open ? (
@@ -122,6 +123,48 @@ function NotificationBell() {
               No notifications yet.
             </div>
           )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function AccountMenu({ user, roleLabel, logout }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  return (
+    <div className="who-wrap" ref={ref} style={{ position: 'relative' }}>
+      <button className="who" type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="avatar">{(user?.name || '?').trim().charAt(0).toUpperCase()}</span>
+        <span className="who-tx">
+          <b>{user?.name}</b>
+          <span>{roleLabel}</span>
+        </span>
+        <Icon name="chevron-down" size={14} className={'who-car' + (open ? ' up' : '')} />
+      </button>
+      {open ? (
+        <div className="who-menu card">
+          <div className="who-menu-head">
+            <span className="avatar">{(user?.name || '?').trim().charAt(0).toUpperCase()}</span>
+            <span className="who-tx">
+              <b>{user?.name}</b>
+              <span>{user?.email}</span>
+            </span>
+          </div>
+          <button className="who-menu-item" type="button" onClick={logout}>
+            <Icon name="log-out" size={15} />
+            Sign out
+          </button>
         </div>
       ) : null}
     </div>
@@ -164,7 +207,7 @@ export default function Shell({ children }) {
         </div>
         <nav className="nav">
           <NavLink to={NAV_HOME[0]} className={({ isActive }) => (isActive ? 'active' : '')}>
-            <span className="ic">{NAV_HOME[2]}</span>
+            <span className="ic"><Icon name={NAV_HOME[2]} size={16} /></span>
             {NAV_HOME[1]}
             {homeBadge ? <span className="count">{homeBadge > 9 ? '9+' : homeBadge}</span> : null}
           </NavLink>
@@ -172,14 +215,14 @@ export default function Shell({ children }) {
             <div key={g.id} className={'nav-group' + (open[g.id] ? ' open' : '')}>
               <button className="gh" type="button" onClick={() => toggle(g.id)}>
                 {g.label}
-                <span className="car">▸</span>
+                <Icon name="chevron-right" size={11} className="car" />
               </button>
               <div className="gi">
                 {g.items
                   .filter((it) => !it[3] || (it[3] === 'admin' ? isAdmin(user?.role) : it[3] === 'mgr' ? isMgr(user?.role) : true))
                   .map((it) => (
                     <NavLink key={it[0]} to={it[0]} className={({ isActive }) => (isActive ? 'active' : '')}>
-                      <span className="ic">{it[2]}</span>
+                      <span className="ic"><Icon name={it[2]} size={16} /></span>
                       {it[1]}
                       {it[0] === '/blacklist' && blBadge ? <span className="count hot">{blBadge > 9 ? '9+' : blBadge}</span> : null}
                     </NavLink>
@@ -200,16 +243,7 @@ export default function Shell({ children }) {
           />
           <div className="grow"></div>
           <NotificationBell />
-          <label className="who">
-            <span className="avatar">{(user?.name || '?').trim().charAt(0).toUpperCase()}</span>
-            <span className="who-tx">
-              <b>{user?.name}</b>
-              <span>{roleLabel}</span>
-            </span>
-            <button className="btn sm ghost" type="button" onClick={logout}>
-              Sign out
-            </button>
-          </label>
+          <AccountMenu user={user} roleLabel={roleLabel} logout={logout} />
         </div>
         <div className="content">{children}</div>
       </div>

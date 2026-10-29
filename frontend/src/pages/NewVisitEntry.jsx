@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { PageHead, ErrBox, Field, Loading, fmtDate, cleanPhone } from '../components/ui'
 import { BL_TEXT } from '../lib/domain'
+import Icon from '../components/Icon'
 import EvidenceModal from '../components/EvidenceModal'
 import DatePicker from '../components/DatePicker'
 import ImageUpload from '../components/ImageUpload'
@@ -246,8 +247,8 @@ export default function NewVisitEntry() {
               <div key={i} className="row" style={{ marginBottom: 4 }}>
                 <input value={a} onChange={(e) => updateAttachment(i, e.target.value)} placeholder="https://…" />
                 {attachments.length > 1 ? (
-                  <button type="button" className="btn ghost sm" onClick={() => removeAttachment(i)}>
-                    ✕
+                  <button type="button" className="btn ghost sm icon-btn" onClick={() => removeAttachment(i)} title="Remove">
+                    <Icon name="x" size={13} />
                   </button>
                 ) : null}
               </div>
@@ -334,8 +335,8 @@ export default function NewVisitEntry() {
                   <input style={{ flex: '1 1 140px' }} placeholder="Designation" value={newAttendee.designation} onChange={(e) => setNewAttendee({ ...newAttendee, designation: e.target.value })} />
                   <input style={{ flex: '1 1 180px' }} placeholder="Email" type="email" value={newAttendee.email} onChange={(e) => setNewAttendee({ ...newAttendee, email: e.target.value })} />
                   <input style={{ flex: '1 1 140px' }} placeholder="Phone" inputMode="tel" value={newAttendee.phone} onChange={(e) => setNewAttendee({ ...newAttendee, phone: cleanPhone(e.target.value) })} />
-                  <button type="button" className="btn ghost sm" onClick={() => setNewAttendee(null)}>
-                    ✕
+                  <button type="button" className="btn ghost sm icon-btn" onClick={() => setNewAttendee(null)} title="Cancel">
+                    <Icon name="x" size={13} />
                   </button>
                   <button type="button" className="btn sm primary" disabled={addingAttendee} onClick={saveNewAttendee}>
                     {addingAttendee ? 'Saving…' : 'Add'}
@@ -385,8 +386,8 @@ export default function NewVisitEntry() {
                   </select>
                   <input className="qty" type="number" min="1" value={l.qty} onChange={(e) => updateLine(i, 'qty', e.target.value)} />
                   {lines.length > 1 ? (
-                    <button type="button" className="btn ghost sm" onClick={() => removeLine(i)}>
-                      ✕
+                    <button type="button" className="btn ghost sm icon-btn" onClick={() => removeLine(i)} title="Remove">
+                      <Icon name="x" size={13} />
                     </button>
                   ) : null}
                 </div>
@@ -496,9 +497,9 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
               <td>
                 <select style={{ width: 'auto' }} value={fb.sentiment || ''} onChange={(e) => onFeedbackChange(i, 'sentiment', e.target.value)}>
                   <option value="">— rate —</option>
-                  <option value="Positive">👍 Good</option>
-                  <option value="Neutral">😐 Okay</option>
-                  <option value="Negative">👎 Issue</option>
+                  <option value="Positive">Good</option>
+                  <option value="Neutral">Okay</option>
+                  <option value="Negative">Issue</option>
                 </select>
               </td>
               <td>
