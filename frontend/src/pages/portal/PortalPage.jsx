@@ -140,14 +140,14 @@ function AlreadyAnswered({ status, onEdit }) {
 function ResponseForm({ token, status, onDone }) {
   const n = status.mail_number
   const prev = status.latest_response?.data || {}
-  // Don't default these to the mail's original "To" contact (status.contact) — the same link is
-  // now also cc'd to every other active contact at the company, so whoever actually opens and
-  // fills this in may be a different person entirely. Pre-filling someone else's name here would
-  // silently misattribute their answer. Editing an already-submitted response is the one case
-  // where a default is safe, since that's presumably the same person who answered last time.
-  const [byName, setByName] = useState(status.latest_response?.by_name || '')
-  const [byDesignation, setByDesignation] = useState(status.latest_response?.by_designation || '')
-  const [byEmail, setByEmail] = useState(status.latest_response?.by_email || '')
+  // Each mail/link is addressed to exactly one contact (status.contact) — that's the person this
+  // particular follow-up thread belongs to, so it's the right default here. If someone already
+  // answered on this thread, prefer THEIR name/designation/email instead (editing their own
+  // earlier answer), since that's who's most likely back to edit it. Either way, every field
+  // stays editable — anyone else who opens this link (e.g. a cc'd contact) can just type over it.
+  const [byName, setByName] = useState(status.latest_response?.by_name || status.contact?.name || '')
+  const [byDesignation, setByDesignation] = useState(status.latest_response?.by_designation || status.contact?.designation || '')
+  const [byEmail, setByEmail] = useState(status.latest_response?.by_email || status.contact?.email || '')
   const [testStatus, setTestStatus] = useState(prev.testStatus || '')
   const [proto, setProto] = useState(prev.proto || '')
   const [orderPlaced, setOrderPlaced] = useState(prev.orderPlaced || '')
