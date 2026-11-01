@@ -195,6 +195,12 @@ input[type=checkbox],input[type=radio]{width:auto;margin:0 6px 0 0}
 .img-upload{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .img-upload-preview{display:flex;align-items:center}
 .img-upload-preview img{max-height:64px;max-width:120px;border-radius:8px;border:1px solid var(--line);object-fit:cover}
+
+/* ---------- file attachments box (components/FileAttachments.jsx) ---------- */
+.file-attachments-list{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:4px}
+.file-attachments-list li{display:flex;align-items:center;gap:6px;background:var(--bg-2,#f6f6f9);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13px}
+.file-attachments-list li a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.file-attachments-list li .icon-btn{margin-left:auto}
 .check{display:flex;align-items:flex-start;font-weight:400;font-size:13px;color:var(--ink);margin:4px 0}
 .check input{margin-top:3px}
 .search{max-width:380px;margin-bottom:12px}

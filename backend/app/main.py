@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -45,6 +46,19 @@ app.mount("/uploads", StaticFiles(directory=app_settings.UPLOAD_DIR), name="uplo
 @app.on_event("startup")
 def _on_startup() -> None:
     start_scheduler()
+    # Every follow-up email's one-time response link is built as f"{FRONTEND_URL}/portal/{token}"
+    # (see app/services/mail_engine.py send_mail). Outside local dev this MUST be set to the
+    # real, public site address in .env — if it's left at the localhost default, every link a
+    # customer receives is dead on arrival (and on a production box, an unmatched/unreachable
+    # link is exactly what makes the customer's browser fall through to the app's own login
+    # screen instead of the response form). This only ever logs a warning; it never blocks startup.
+    if app_settings.ENV != "development" and "localhost" in app_settings.FRONTEND_URL:
+        logging.getLogger("abg.config").warning(
+            "FRONTEND_URL is still set to %r outside development (ENV=%r) — every portal link "
+            "in an outgoing email will be broken for customers. Set FRONTEND_URL in .env to this "
+            "site's real public address (e.g. http://46.202.164.88:8083) and restart.",
+            app_settings.FRONTEND_URL, app_settings.ENV,
+        )
 
 
 @app.on_event("shutdown")

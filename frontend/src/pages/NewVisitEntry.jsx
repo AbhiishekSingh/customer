@@ -9,7 +9,8 @@ import { BL_TEXT } from '../lib/domain'
 import Icon from '../components/Icon'
 import EvidenceModal from '../components/EvidenceModal'
 import DatePicker from '../components/DatePicker'
-import ImageUpload from '../components/ImageUpload'
+import ImageUpload, { displaySrc } from '../components/ImageUpload'
+import FileAttachments from '../components/FileAttachments'
 
 const SWATCH_TYPES = ['Hanger', 'Swatch', 'Yardage']
 const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
@@ -33,7 +34,7 @@ export default function NewVisitEntry() {
   const [collections, setCollections] = useState('')
   const [wayForward, setWayForward] = useState('')
   const [presentedBy, setPresentedBy] = useState([])
-  const [attachments, setAttachments] = useState([''])
+  const [attachments, setAttachments] = useState([]) // [{ url, name }]
   const [attendeeIds, setAttendeeIds] = useState([])
   const [lines, setLines] = useState([{ representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1 }])
   const [err, setErr] = useState('')
@@ -66,16 +67,6 @@ export default function NewVisitEntry() {
   function togglePresenter(id) {
     setPresentedBy((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
   }
-  function updateAttachment(i, value) {
-    setAttachments((a) => a.map((x, idx) => (idx === i ? value : x)))
-  }
-  function addAttachment() {
-    setAttachments((a) => [...a, ''])
-  }
-  function removeAttachment(i) {
-    setAttachments((a) => a.filter((_, idx) => idx !== i))
-  }
-
   async function saveNewAttendee() {
     if (!newAttendee.name.trim()) {
       toast('Name is required')
@@ -159,7 +150,7 @@ export default function NewVisitEntry() {
         collections,
         way_forward: wayForward || null,
         presented_by: presentedBy,
-        attachments: attachments.map((a) => a.trim()).filter(Boolean),
+        attachments: attachments.map((a) => a.url),
         attendee_contact_ids: attendeeIds,
         lines: validLines.map((l, i) => ({
           ...l,
@@ -196,7 +187,7 @@ export default function NewVisitEntry() {
           collections={collections}
           wayForward={wayForward}
           presenterNames={presentedBy.map((id) => directory?.find((u) => u.id === id)?.name).filter(Boolean)}
-          attachments={attachments.filter((a) => a.trim())}
+          attachments={attachments}
           attendees={activeContacts.filter((p) => attendeeIds.includes(p.id))}
           lines={validLines}
           fabrics={fabrics}
@@ -234,7 +225,7 @@ export default function NewVisitEntry() {
           </Field>
           <Field label="Presented by" hint="Who from your side presented, if different from who's logging this">
             <div className="chips">
-              {(directory || []).filter((u) => u.is_active).map((u) => (
+              {(directory || []).filter((u) => u.is_active && u.password_set).map((u) => (
                 <label key={u.id} className="chip" style={{ cursor: 'pointer' }}>
                   <input type="checkbox" checked={presentedBy.includes(u.id)} onChange={() => togglePresenter(u.id)} style={{ marginRight: 4 }} />
                   {u.name}
@@ -242,20 +233,8 @@ export default function NewVisitEntry() {
               ))}
             </div>
           </Field>
-          <Field label="Pre-visit attachments" hint="Paste links to reference material (deck, catalogue, etc.)">
-            {attachments.map((a, i) => (
-              <div key={i} className="row" style={{ marginBottom: 4 }}>
-                <input value={a} onChange={(e) => updateAttachment(i, e.target.value)} placeholder="https://…" />
-                {attachments.length > 1 ? (
-                  <button type="button" className="btn ghost sm icon-btn" onClick={() => removeAttachment(i)} title="Remove">
-                    <Icon name="x" size={13} />
-                  </button>
-                ) : null}
-              </div>
-            ))}
-            <button type="button" className="btn sm" onClick={addAttachment}>
-              ＋ Add link
-            </button>
+          <Field label="Pre-visit attachments" hint="Upload reference material — PDF, Word, Excel, or a photo (deck, catalogue, etc.)">
+            <FileAttachments value={attachments} onChange={setAttachments} label="＋ Upload file" />
           </Field>
         </div>
 
@@ -454,7 +433,11 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
         <Field label="Attachments">
           <ul>
             {attachments.map((a, i) => (
-              <li key={i}>{a}</li>
+              <li key={i}>
+                <a href={displaySrc(a.url)} target="_blank" rel="noreferrer">
+                  {a.name}
+                </a>
+              </li>
             ))}
           </ul>
         </Field>

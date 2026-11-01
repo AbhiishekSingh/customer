@@ -158,6 +158,35 @@ MAIL_PURPOSE = {
 }
 
 
+def build_cc_list(db: Session, customer: Customer, owner_id: uuid.UUID | None, settings: dict, extra_cc: str | None = None) -> str | None:
+    """Every follow-up email goes out to the customer's own contact as the To:, and in Cc to
+    everyone on our side who should see the exchange: the company's own general/marketing mailbox
+    (Customer.company_email, when set), whoever is currently assigned to this customer
+    (Customer.owner_id — currently always exactly one person, but this is written to keep working
+    unchanged if that ever becomes a list), the admin-configured marketing_cc mailbox, and finally
+    any one-off extra recipient added for a single manual send. Duplicates (same address, case-
+    insensitive) are collapsed so the same person never gets the email twice."""
+    from app.models.user import User  # local import avoids a circular import at module load time
+
+    owner_email = None
+    if owner_id:
+        owner = db.get(User, owner_id)
+        owner_email = owner.email if owner else None
+
+    candidates = [settings.get("marketing_cc"), customer.company_email, owner_email, extra_cc]
+    seen: set[str] = set()
+    out: list[str] = []
+    for addr in candidates:
+        if not addr:
+            continue
+        addr = addr.strip()
+        key = addr.lower()
+        if addr and key not in seen:
+            seen.add(key)
+            out.append(addr)
+    return ", ".join(out) if out else None
+
+
 def mail_blocked_by_c(vc: VisitContact, mail: Mail, customer: Customer) -> bool:
     """§6/§7: Blacklist C blocks only the 'new collection' Mail 5 preview path — not an
     already-placed order's own execution-status follow-up."""
@@ -214,12 +243,13 @@ def send_mail(db: Session, vc: VisitContact, mail: Mail, send_date: date, settin
     # Outbox.body / the "View" preview keep the relative /portal/<token> link as before (unchanged
     # behavior). The actual outbound email needs an absolute, clickable URL though — a bare
     # "/portal/abc123" is useless once it's sitting in someone's inbox instead of this app's UI.
-    email_body = body.replace(link, f"{app_config.FRONTEND_URL}{link}")
+    email_body = body.replace(link, f"{app_config.FRONTEND_URL.rstrip('/')}{link}")
 
-    # Extra recipient is additive — it rides along as an extra cc on top of the configured
-    # marketing cc, never replacing the customer's own To: address or the marketing cc.
-    cc_parts = [c for c in [settings.get("marketing_cc"), extra_cc] if c]
-    cc = ", ".join(cc_parts) if cc_parts else None
+    # Cc goes to everyone on our side who should see this exchange — the company's own mailbox,
+    # whoever is assigned to the customer, and the configured marketing mailbox. Extra recipient
+    # (from the "review before sending" dialog) is additive on top of all of that, never a
+    # replacement for it.
+    cc = build_cc_list(db, customer, visit.owner_id, settings, extra_cc)
 
     send_error: str | None = None
     try:

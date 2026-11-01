@@ -55,6 +55,7 @@ def get_mail_draft(mail_id: uuid.UUID, db: Session = Depends(get_db), user: User
     dialog, so staff can tweak the wording for just this one send. Unlike GET /mails/{id}/content
     (which resolves {link} to a fake preview string for display), this keeps {link} as a literal
     token so the real one-time link can still be substituted in at actual send time."""
+    from app.services.mail_engine import build_cc_list
     from app.services.mail_templates import get_template
 
     mail, vc, visit = _owned_mail(db, user, mail_id)
@@ -63,7 +64,11 @@ def get_mail_draft(mail_id: uuid.UUID, db: Session = Depends(get_db), user: User
     variant = mail.variant or (("ordered" if vc.order_placed else "notordered") if mail.mail_number == 5 else None)
     template = get_template(db, mail.mail_number, variant)
     settings = get_settings(db)
-    return {"to_email": contact.email, "cc": settings.get("marketing_cc"), "subject": template.subject, "body": template.body}
+    return {
+        "to_email": contact.email, "cc": build_cc_list(db, customer, visit.owner_id, settings),
+        "subject": template.subject, "body": template.body,
+        "customer_name": customer.name, "contact_name": contact.name, "contact_designation": contact.designation,
+    }
 
 
 @router.post("/mails/{mail_id}/send-now", response_model=MailOut)
@@ -244,7 +249,7 @@ def get_mail_content(mail_id: uuid.UUID, db: Session = Depends(get_db), user: Us
     have changed since). For a mail still 'scheduled', there is no Outbox row yet, so this renders
     a live preview of what WOULD be sent right now (is_preview: true) — not persisted anywhere."""
     from app.models.misc import Outbox
-    from app.services.mail_engine import items_text
+    from app.services.mail_engine import build_cc_list, items_text
     from app.services.mail_templates import get_template, render
 
     mail, vc, visit = _owned_mail(db, user, mail_id)
@@ -269,7 +274,7 @@ def get_mail_content(mail_id: uuid.UUID, db: Session = Depends(get_db), user: Us
         items=items_text(db, vc), link="[link generated when this mail is sent]",
         link_validity_hours=settings["link_validity_days"] * 24,
     )
-    return {"is_preview": True, "to_email": contact.email, "cc": settings.get("marketing_cc"), "subject": subject, "body": body, "sent_at": None}
+    return {"is_preview": True, "to_email": contact.email, "cc": build_cc_list(db, customer, visit.owner_id, settings), "subject": subject, "body": body, "sent_at": None}
 
 
 @router.post("/admin/run-scheduler")

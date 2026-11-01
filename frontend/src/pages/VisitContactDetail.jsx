@@ -5,7 +5,7 @@ import { useApi } from '../api/useApi'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { Loading, ErrBox, PageHead, Panel, Modal, Field, blPill, fmtDate } from '../components/ui'
-import { BL_TEXT, mailName, MAIL_PURPOSE, mailState, respSummary, latestItemFeedback } from '../lib/domain'
+import { BL_TEXT, mailName, MAIL_PURPOSE, mailState, respSummary, latestItemFeedback, humanKey } from '../lib/domain'
 import DatePicker from '../components/DatePicker'
 import ImageUpload, { displaySrc } from '../components/ImageUpload'
 
@@ -114,6 +114,15 @@ export default function VisitContactDetail() {
       toast(e.message)
     } finally {
       setBusyMail(null)
+    }
+  }
+
+  function openAnswer(m) {
+    setHistoryMail(m)
+    if (m.unreviewed) {
+      // Opening the answer IS reviewing it — no separate "Mark reviewed" click needed. Best-effort,
+      // silent: nothing in this view depends on it succeeding right away.
+      api.post(`/mails/${m.id}/mark-reviewed`).catch(() => {})
     }
   }
 
@@ -319,19 +328,14 @@ export default function VisitContactDetail() {
                 <td className="reply">
                   {summary ? (
                     <>
-                      {summary.text || <span className="muted">(no details given)</span>}
-                      <br />
-                      <small>
-                        {summary.by || ''}
+                      <small style={{ display: 'block', marginBottom: 4 }}>
+                        {summary.by || 'Customer'}
                         {summary.designation ? `, ${summary.designation}` : ''} · {fmtDate(summary.at)}
                         {summary.source === 'manual' ? ' · added by team' : ''}
-                        {summary.count > 1 ? (
-                          <>
-                            {' · '}
-                            <a onClick={() => setHistoryMail(m)}>{summary.count} versions</a>
-                          </>
-                        ) : null}
                       </small>
+                      <button className="btn sm" type="button" onClick={() => openAnswer(m)}>
+                        View{summary.count > 1 ? ` (${summary.count})` : ''}
+                      </button>
                     </>
                   ) : (
                     <span className="muted">—</span>
@@ -370,11 +374,6 @@ export default function VisitContactDetail() {
                         <button className="btn sm" disabled={busyMail === m.id} onClick={() => act(m.id, 'resend-link')} type="button">
                           Send new link
                         </button>
-                      ) : null}{' '}
-                      {m.unreviewed ? (
-                        <button className="btn sm" disabled={busyMail === m.id} onClick={() => act(m.id, 'mark-reviewed')} type="button">
-                          Mark reviewed
-                        </button>
                       ) : null}
                     </>
                   ) : null}
@@ -395,7 +394,9 @@ export default function VisitContactDetail() {
         </table>
       </Panel>
 
-      {respondMail ? <ManualResponseModal mail={respondMail} mails={mails} vc={vc} fabricById={fabricById} onClose={() => setRespondMail(null)} onDone={reload} /> : null}
+      {respondMail ? (
+        <ManualResponseModal mail={respondMail} mails={mails} vc={vc} fabricById={fabricById} customer={c} contact={contact} onClose={() => setRespondMail(null)} onDone={reload} />
+      ) : null}
       {fixEmailMail ? <FixEmailModal mail={fixEmailMail} contact={contact} onClose={() => setFixEmailMail(null)} onSubmit={fixBounce} /> : null}
       {orderModal ? <RecordOrderModal vc={vc} fabricById={fabricById} onClose={() => setOrderModal(false)} onDone={reload} /> : null}
       {postponeMail ? <PostponeModal mail={postponeMail} onClose={() => setPostponeMail(null)} onSubmit={doPostpone} /> : null}
@@ -447,21 +448,48 @@ function UndoOrderModal({ onClose, onSubmit }) {
 }
 
 function ResponseHistoryModal({ mail, onClose }) {
+  const versions = (mail.responses || []).slice().reverse() // latest first
   return (
-    <Modal title={`${mailName(mail.mail_number)} — response history`} wide onClose={onClose} footer={
+    <Modal title={`${mailName(mail.mail_number)} — customer's answer`} wide onClose={onClose} footer={
       <button className="btn" onClick={onClose} type="button">Close</button>
     }>
-      {mail.responses.map((r, i) => {
-        const parts = Object.entries(r.raw_data || {})
-          .filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length))
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-        return (
-          <div key={r.id} className="card" style={{ marginBottom: 8 }}>
-            <b>Version {i + 1}</b> <span className="hint">· {fmtDate(r.submitted_at)} {r.by_name ? `· ${r.by_name}` : ''}{r.source === 'manual' ? ' · added by team' : ''}</span>
-            <p style={{ margin: '6px 0 0' }}>{parts.join(' · ') || <span className="muted">(no details given)</span>}</p>
-          </div>
-        )
-      })}
+      <p className="hint" style={{ marginTop: 0 }}>{MAIL_PURPOSE[mail.mail_number]}</p>
+      {!versions.length ? (
+        <p className="muted">No response yet.</p>
+      ) : (
+        versions.map((r, i) => {
+          const entries = Object.entries(r.raw_data || {})
+            .filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length))
+          return (
+            <div key={r.id} className="card" style={{ marginBottom: 10 }}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                <b>{i === 0 ? 'Latest answer' : `Earlier answer (version ${versions.length - i})`}</b>
+                <span className="hint">{fmtDate(r.submitted_at)}</span>
+              </div>
+              <p className="hint" style={{ margin: '0 0 8px' }}>
+                {r.by_name || 'Customer'}
+                {r.by_designation ? `, ${r.by_designation}` : ''}
+                {r.by_email ? ` · ${r.by_email}` : ''}
+                {r.source === 'manual' ? ' · added by team' : ''}
+              </p>
+              {entries.length ? (
+                <table style={{ width: '100%' }}>
+                  <tbody>
+                    {entries.map(([k, v]) => (
+                      <tr key={k}>
+                        <td style={{ fontWeight: 600, width: 180, verticalAlign: 'top', padding: '3px 8px 3px 0' }}>{humanKey(k)}</td>
+                        <td style={{ padding: '3px 0' }}>{Array.isArray(v) ? v.join(', ') : String(v)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted" style={{ margin: 0 }}>(no details given)</p>
+              )}
+            </div>
+          )
+        })
+      )}
     </Modal>
   )
 }
@@ -556,6 +584,12 @@ function SendNowModal({ mail, busy, onClose, onSend }) {
           <p className="hint" style={{ marginTop: 0 }}>
             This is exactly what will be emailed. You can edit it here for just this one send — the saved template everyone else uses is untouched.
           </p>
+          {data.customer_name ? (
+            <p style={{ margin: '0 0 4px' }}>
+              <b>{data.customer_name}</b> — {data.contact_name}
+              {data.contact_designation ? `, ${data.contact_designation}` : ''}
+            </p>
+          ) : null}
           <p style={{ margin: '0 0 8px' }}>
             <b>To:</b> {data.to_email}
             {data.cc ? ` · cc: ${data.cc}` : ''}
@@ -660,13 +694,16 @@ function RecordOrderModal({ vc, fabricById, onClose, onDone }) {
   )
 }
 
-function ManualResponseModal({ mail, mails, vc, fabricById, onClose, onDone }) {
+function ManualResponseModal({ mail, mails, vc, fabricById, customer, contact, onClose, onDone }) {
   const toast = useToast()
   const [mailId, setMailId] = useState(mail.id)
   const activeMail = (mails || [mail]).find((m) => m.id === mailId) || mail
   const n = activeMail.mail_number
-  const [byName, setByName] = useState('')
-  const [byDesignation, setByDesignation] = useState('')
+  // Pre-filled from the customer's own contact on file — this is who the reply is almost always
+  // from, so staff shouldn't have to retype a name/designation we already have. Still editable,
+  // since an answer can come from someone else at the company.
+  const [byName, setByName] = useState(contact?.name || '')
+  const [byDesignation, setByDesignation] = useState(contact?.designation || '')
   const [feedback, setFeedback] = useState('')
   const [received, setReceived] = useState('')
   const [testStatus, setTestStatus] = useState('')
@@ -745,6 +782,13 @@ function ManualResponseModal({ mail, mails, vc, fabricById, onClose, onDone }) {
         </>
       }
     >
+      {customer ? (
+        <p className="hint" style={{ marginTop: 0 }}>
+          <b>{customer.name}</b> — {contact?.name}
+          {contact?.designation ? `, ${contact.designation}` : ''}
+          {contact?.email ? ` · ${contact.email}` : ''}
+        </p>
+      ) : null}
       {mails && mails.length > 1 ? (
         <Field label="Which email is this reply for?" hint="A phone call or walk-in answer can be attached to a different mail in the sequence than the one you opened this from">
           <select value={mailId} onChange={(e) => setMailId(e.target.value)}>

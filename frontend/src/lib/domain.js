@@ -68,7 +68,7 @@ export function respSummary(responses) {
   return { text: parts.join(' · '), by: r.by_name, designation: r.by_designation, at: r.submitted_at, source: r.source, count: responses.length }
 }
 
-function humanKey(k) {
+export function humanKey(k) {
   return k
     .replace(/([A-Z])/g, ' $1')
     .replace(/_/g, ' ')

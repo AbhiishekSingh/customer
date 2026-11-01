@@ -133,8 +133,8 @@ export default function Presentation() {
                 <ul style={{ margin: '4px 0 0' }}>
                   {v.attachments.map((a, i) => (
                     <li key={i}>
-                      <a href={a} target="_blank" rel="noreferrer">
-                        {a}
+                      <a href={displaySrc(a)} target="_blank" rel="noreferrer">
+                        {/^https?:\/\//i.test(a) ? a : a.split('/').pop().replace(/^[0-9a-f]{32}_/, '')}
                       </a>
                     </li>
                   ))}

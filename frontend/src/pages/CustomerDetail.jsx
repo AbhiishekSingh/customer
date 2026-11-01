@@ -498,24 +498,19 @@ function ContactsTab({ customer: c, countries, reload, canEdit }) {
   const [editing, setEditing] = useState(false)
   const [rows, setRows] = useState(() => c.contacts.map((x) => ({ ...x, team_name: c.teams.find((t) => t.id === x.team_id)?.name || '' })))
   const [busy, setBusy] = useState(false)
+  const [sameAddress, setSameAddress] = useState(false)
 
   function update(i, field, value) {
-    setRows((rs) =>
-      rs.map((r, idx) => {
-        if (idx === i) return { ...r, [field]: value }
-        if (field === 'primary' && value) return { ...r, primary: false }
-        return r
-      })
-    )
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
   }
   function setCountry(i, countryName) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, country: countryName, state: '' } : r)))
   }
   function addRow() {
     setRows((rs) => {
-      // Carry the previous person's address over to the new row — most contacts at the same
-      // company share one office address, so this saves re-typing it every time.
-      const last = rs[rs.length - 1]
+      // Only carry the previous person's address over when "same address" is checked — otherwise
+      // start blank, same as before.
+      const last = sameAddress ? rs[rs.length - 1] : null
       return [
         ...rs,
         {
@@ -655,23 +650,23 @@ function ContactsTab({ customer: c, countries, reload, canEdit }) {
                 <Field label="Address line 2">
                   <input value={r.address_line2 || ''} onChange={(e) => update(i, 'address_line2', e.target.value)} />
                 </Field>
-                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                  <label className="check" style={{ margin: 0 }}>
-                    <input type="checkbox" checked={!!r.primary} onChange={(e) => update(i, 'primary', e.target.checked)} /> Primary contact
-                  </label>
-                  {!r.id ? (
+                {!r.id ? (
+                  <div className="row end" style={{ marginTop: 4 }}>
                     <button type="button" className="btn ghost sm icon-btn" onClick={() => removeRow(i)} title="Remove this person">
                       <Icon name="x" size={13} /> Remove
                     </button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </div>
             )
           })}
-          <div className="row" style={{ padding: '10px 0' }}>
+          <div className="row" style={{ padding: '10px 0', alignItems: 'center', gap: 12 }}>
             <button className="btn sm" onClick={addRow} type="button">
               ＋ Add person
             </button>
+            <label className="check" style={{ margin: 0 }}>
+              <input type="checkbox" checked={sameAddress} onChange={(e) => setSameAddress(e.target.checked)} /> Use the same address as the last person
+            </label>
           </div>
           <div className="row end">
             <button className="btn" onClick={() => setEditing(false)} type="button">
