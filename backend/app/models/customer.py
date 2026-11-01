@@ -10,9 +10,23 @@ from app.models.base import Timestamped, UUIDPk
 from app.models.enums import BlacklistCatEnum, StatusEnum
 
 
+def _next_customer_code(context) -> str:
+    """Column-level default so ANY insert path (the API, a seed/migration script, a test building
+    a Customer() directly) gets a unique code for free, without every caller having to remember to
+    set one. `context.connection` is the exact connection the INSERT is about to run on — reusing
+    it keeps this inside whatever transaction is already open instead of opening a second one."""
+    n = context.connection.execute(text("SELECT nextval('customer_code_seq')")).scalar()
+    return f"CUST-{n:04d}"
+
+
 class Customer(Base, UUIDPk, Timestamped):
     __tablename__ = "customers"
 
+    # Human-facing unique identifier (e.g. "CUST-0001"), distinct from the internal UUID `id`.
+    # Guarantees every customer record has a stable, visibly-unique identity even when two
+    # companies share a similar or identical name. See scripts/migrate_customer_code.py for the
+    # backfill on existing rows and the customer_code_seq sequence this draws from.
+    customer_code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True, default=_next_customer_code)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)  # categories(type='customer').name
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)

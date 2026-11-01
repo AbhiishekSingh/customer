@@ -25,7 +25,6 @@ export default function NewCustomer() {
   const [addressLine1, setAddressLine1] = useState('')
   const [addressLine2, setAddressLine2] = useState('')
   const [pincode, setPincode] = useState('')
-  const [companyAddress, setCompanyAddress] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
   const [ownerId, setOwnerId] = useState(user?.id || '')
@@ -78,7 +77,6 @@ export default function NewCustomer() {
         address_line1: addressLine1 || null,
         address_line2: addressLine2 || null,
         pincode: pincode || null,
-        company_address: companyAddress || null,
         company_email: companyEmail || null,
         company_phone: companyPhone || null,
         owner_id: ownerId,
@@ -166,10 +164,6 @@ export default function NewCustomer() {
             <input inputMode="numeric" maxLength={6} value={pincode} onChange={(e) => setPincode(onlyDigits(e.target.value, 6))} />
           </Field>
         </div>
-        <Field label="Company address (free text)" hint="Only if the structured fields above aren't enough">
-          <textarea value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} />
-        </Field>
-
         <h3 style={{ margin: '16px 0 8px' }}>Contacts</h3>
         <Field label="Assigned to">
           <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} required>

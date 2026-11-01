@@ -40,6 +40,7 @@ export default function Customers() {
   const rows = customers.map((c) => ({ ...c, _s: summaryById[c.id] }))
 
   const columns = [
+    { key: 'customer_code', label: 'Customer ID', get: (c) => c.customer_code },
     { key: 'name', label: 'Company', get: (c) => c.name, render: (c) => (
       <>
         <b>{c.name}</b> {c.blacklist_cat ? <> {blPill(c.blacklist_cat)}</> : null}

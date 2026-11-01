@@ -24,6 +24,14 @@ class User(Base, UUIDPk, Timestamped):
     failed_attempts: Mapped[int] = mapped_column(default=0, nullable=False)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    @property
+    def password_set(self) -> bool:
+        """An admin-created account has no usable password until the person completes their
+        one-time invite link (see POST /users — password_hash stays None until then). Used to show
+        "Pending" instead of "Active" in the Users list, without changing `is_active` itself, which
+        still governs whether an account is allowed to log in at all once a password exists."""
+        return self.password_hash is not None
+
 
 class PasswordResetToken(Base, UUIDPk, Timestamped):
     __tablename__ = "password_reset_tokens"

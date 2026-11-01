@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
@@ -186,7 +186,11 @@ def create_customer(payload: CustomerCreate, force: bool = False, db: Session = 
             raise validation_error(f"Unknown or inactive customer category '{payload.category}'")
     _validate_country_state(db, payload.country, payload.state)
 
-    existing = db.scalar(select(Customer).where(Customer.name == payload.name, Customer.country == payload.country))
+    # Case/whitespace-insensitive so "ABC Textiles" and "abc textiles " are caught as the same
+    # company, not just an exact byte-for-byte match.
+    existing = db.scalar(
+        select(Customer).where(func.lower(Customer.name) == payload.name.strip().lower(), Customer.country == payload.country)
+    )
     if existing and not force:
         raise conflict(f"A customer named '{payload.name}' in {payload.country or 'the same country'} already exists — resend with force=true to create anyway")
 

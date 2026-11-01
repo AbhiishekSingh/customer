@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext'
 import { Loading, ErrBox, PageHead, Panel, Empty, Field, blPill, tagPill, fmtDate, onlyDigits, cleanPhone } from '../components/ui'
 import { BL_TEXT } from '../lib/domain'
 import EvidenceModal from '../components/EvidenceModal'
+import Icon from '../components/Icon'
 
 const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
 const isAdmin = (role) => role === 'admin' || role === 'top'
@@ -119,7 +120,7 @@ export default function CustomerDetail() {
       </div>
       <PageHead
         title={<>{c.name} {c.blacklist_cat ? blPill(c.blacklist_cat) : null}</>}
-        sub={`${c.category || ''} · ${c.city || ''}${c.city && c.country ? ', ' : ''}${c.country || ''} · owner ${ownerName}`}
+        sub={`${c.customer_code} · ${c.category || ''} · ${c.city || ''}${c.city && c.country ? ', ' : ''}${c.country || ''} · owner ${ownerName}`}
         actions={
           user?.role !== 'top' ? (
             <button className="btn primary" onClick={() => navigate(`/entry/new?customer=${c.id}`)} type="button">
@@ -236,7 +237,7 @@ export default function CustomerDetail() {
       {tab === 'overview' && (
         <OverviewTab customer={c} ownerName={ownerName} directory={directory} categories={categories} countries={countries} editing={editing} setEditing={setEditing} reload={reload} toggleMarketing={toggleMarketing} canEdit={isMgr(user?.role)} />
       )}
-      {tab === 'contacts' && <ContactsTab customer={c} reload={reload} canEdit={isMgr(user?.role)} />}
+      {tab === 'contacts' && <ContactsTab customer={c} countries={countries} reload={reload} canEdit={isMgr(user?.role)} />}
       {tab === 'visits' && (
         <Panel title="Visits" count={custVisits.length}>
           {custVisits.length ? (
@@ -423,9 +424,6 @@ function OverviewTab({ customer: c, ownerName, directory, categories, countries,
         <Field label="Address line 2">
           <input value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} />
         </Field>
-        <Field label="Company address (free text)">
-          <textarea value={form.company_address} onChange={(e) => setForm({ ...form, company_address: e.target.value })} />
-        </Field>
         <Field label="Notes">
           <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </Field>
@@ -474,9 +472,6 @@ function OverviewTab({ customer: c, ownerName, directory, categories, countries,
               {[c.address_line1, c.address_line2, c.city, c.state, c.country, c.pincode].filter(Boolean).join(', ') || '—'}
             </div>
           </Field>
-          <Field label="Company address (free text)">
-            <div>{c.company_address || '—'}</div>
-          </Field>
           <Field label="Notes">
             <div>{c.notes || '—'}</div>
           </Field>
@@ -498,23 +493,48 @@ function OverviewTab({ customer: c, ownerName, directory, categories, countries,
   )
 }
 
-function ContactsTab({ customer: c, reload, canEdit }) {
+function ContactsTab({ customer: c, countries, reload, canEdit }) {
   const toast = useToast()
   const [editing, setEditing] = useState(false)
   const [rows, setRows] = useState(() => c.contacts.map((x) => ({ ...x, team_name: c.teams.find((t) => t.id === x.team_id)?.name || '' })))
   const [busy, setBusy] = useState(false)
 
   function update(i, field, value) {
-    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
+    setRows((rs) =>
+      rs.map((r, idx) => {
+        if (idx === i) return { ...r, [field]: value }
+        if (field === 'primary' && value) return { ...r, primary: false }
+        return r
+      })
+    )
+  }
+  function setCountry(i, countryName) {
+    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, country: countryName, state: '' } : r)))
   }
   function addRow() {
-    setRows((rs) => [
-      ...rs,
-      {
-        team_name: '', name: '', designation: '', email: '', phone: '', primary: false, senior: false, status: 'active',
-        address_line1: '', address_line2: '', city: '', state: '', country: '', pincode: '',
-      },
-    ])
+    setRows((rs) => {
+      // Carry the previous person's address over to the new row — most contacts at the same
+      // company share one office address, so this saves re-typing it every time.
+      const last = rs[rs.length - 1]
+      return [
+        ...rs,
+        {
+          team_name: '', name: '', designation: '', email: '', phone: '', primary: false, senior: false, status: 'active',
+          address_line1: last?.address_line1 || '',
+          address_line2: last?.address_line2 || '',
+          city: last?.city || '',
+          state: last?.state || '',
+          country: last?.country || '',
+          pincode: last?.pincode || '',
+        },
+      ]
+    })
+  }
+  function removeRow(i) {
+    setRows((rs) => rs.filter((_, idx) => idx !== i))
+  }
+  function statesFor(countryName) {
+    return countries?.find((cn) => cn.name === countryName)?.states?.filter((s) => s.status === 'active') || []
   }
 
   async function save() {
@@ -572,64 +592,82 @@ function ContactsTab({ customer: c, reload, canEdit }) {
     return (
       <Panel title="Edit contacts">
         <div style={{ padding: 12 }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="ie-table">
-              <tr>
-                <th>Name</th>
-                <th>Team</th>
-                <th>Designation</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Address line 1</th>
-                <th>Address line 2</th>
-                <th>City</th>
-                <th>State</th>
-                <th>Country</th>
-                <th>Pincode</th>
-                <th>Primary</th>
-              </tr>
-              {rows.map((r, i) => (
-                <tr key={r.id || i}>
-                  <td>
+          {rows.map((r, i) => {
+            const statesForCountry = statesFor(r.country)
+            return (
+              <div key={r.id || `new-${i}`} className="card" style={{ marginBottom: 12 }}>
+                <div className="grid g3">
+                  <Field label="Name">
                     <input value={r.name} onChange={(e) => update(i, 'name', e.target.value)} />
-                  </td>
-                  <td>
+                  </Field>
+                  <Field label="Team">
                     <input value={r.team_name} onChange={(e) => update(i, 'team_name', e.target.value)} />
-                  </td>
-                  <td>
+                  </Field>
+                  <Field label="Designation">
                     <input value={r.designation || ''} onChange={(e) => update(i, 'designation', e.target.value)} />
-                  </td>
-                  <td>
-                    <input value={r.email || ''} onChange={(e) => update(i, 'email', e.target.value)} />
-                  </td>
-                  <td>
+                  </Field>
+                  <Field label="Email">
+                    <input type="email" value={r.email || ''} onChange={(e) => update(i, 'email', e.target.value)} />
+                  </Field>
+                  <Field label="Phone">
                     <input inputMode="tel" value={r.phone || ''} onChange={(e) => update(i, 'phone', cleanPhone(e.target.value))} />
-                  </td>
-                  <td>
-                    <input value={r.address_line1 || ''} onChange={(e) => update(i, 'address_line1', e.target.value)} />
-                  </td>
-                  <td>
-                    <input value={r.address_line2 || ''} onChange={(e) => update(i, 'address_line2', e.target.value)} />
-                  </td>
-                  <td>
+                  </Field>
+                  <Field label="City">
                     <input value={r.city || ''} onChange={(e) => update(i, 'city', e.target.value)} />
-                  </td>
-                  <td>
-                    <input value={r.state || ''} onChange={(e) => update(i, 'state', e.target.value)} />
-                  </td>
-                  <td>
-                    <input value={r.country || ''} onChange={(e) => update(i, 'country', e.target.value)} />
-                  </td>
-                  <td>
+                  </Field>
+                  <Field label="Country">
+                    <select value={r.country || ''} onChange={(e) => setCountry(i, e.target.value)}>
+                      <option value="">— none —</option>
+                      {countries?.filter((cn) => cn.status === 'active').map((cn) => (
+                        <option key={cn.id} value={cn.name}>
+                          {cn.name}
+                        </option>
+                      ))}
+                      {r.country && !countries?.some((cn) => cn.status === 'active' && cn.name === r.country) ? (
+                        <option value={r.country}>{r.country}</option>
+                      ) : null}
+                    </select>
+                  </Field>
+                  <Field label="State">
+                    {statesForCountry.length || r.state ? (
+                      <select value={r.state || ''} onChange={(e) => update(i, 'state', e.target.value)}>
+                        <option value="">— none —</option>
+                        {statesForCountry.map((s) => (
+                          <option key={s.id} value={s.name}>
+                            {s.name}
+                          </option>
+                        ))}
+                        {r.state && !statesForCountry.some((s) => s.name === r.state) ? (
+                          <option value={r.state}>{r.state}</option>
+                        ) : null}
+                      </select>
+                    ) : (
+                      <input value={r.state || ''} onChange={(e) => update(i, 'state', e.target.value)} placeholder="Select a country first" />
+                    )}
+                  </Field>
+                  <Field label="Pincode">
                     <input inputMode="numeric" maxLength={6} value={r.pincode || ''} onChange={(e) => update(i, 'pincode', onlyDigits(e.target.value, 6))} />
-                  </td>
-                  <td>
-                    <input type="checkbox" checked={!!r.primary} onChange={(e) => update(i, 'primary', e.target.checked)} />
-                  </td>
-                </tr>
-              ))}
-            </table>
-          </div>
+                  </Field>
+                </div>
+                <Field label="Address line 1">
+                  <input value={r.address_line1 || ''} onChange={(e) => update(i, 'address_line1', e.target.value)} />
+                </Field>
+                <Field label="Address line 2">
+                  <input value={r.address_line2 || ''} onChange={(e) => update(i, 'address_line2', e.target.value)} />
+                </Field>
+                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                  <label className="check" style={{ margin: 0 }}>
+                    <input type="checkbox" checked={!!r.primary} onChange={(e) => update(i, 'primary', e.target.checked)} /> Primary contact
+                  </label>
+                  {!r.id ? (
+                    <button type="button" className="btn ghost sm icon-btn" onClick={() => removeRow(i)} title="Remove this person">
+                      <Icon name="x" size={13} /> Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
           <div className="row" style={{ padding: '10px 0' }}>
             <button className="btn sm" onClick={addRow} type="button">
               ＋ Add person

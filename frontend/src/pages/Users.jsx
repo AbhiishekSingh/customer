@@ -11,7 +11,6 @@ export default function Users() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState(null)
   const [inviteLink, setInviteLink] = useState(null)
-  const [roleBusy, setRoleBusy] = useState(null)
   const { data: users, error, loading, reload } = useApi(() => api.get('/users'), [])
   const { data: customers } = useApi(() => api.get('/customers'), [])
 
@@ -44,20 +43,6 @@ export default function Users() {
     }
   }
 
-  async function changeRole(u, role) {
-    if (role === u.role) return
-    setRoleBusy(u.id)
-    try {
-      await api.patch(`/users/${u.id}`, { role })
-      toast(`${u.name} is now ${ROLE_LABEL[role]}`)
-      reload()
-    } catch (e) {
-      toast(e.message)
-    } finally {
-      setRoleBusy(null)
-    }
-  }
-
   return (
     <div>
       <PageHead
@@ -86,23 +71,15 @@ export default function Users() {
                 <b>{u.name}</b>
               </td>
               <td>{u.email}</td>
-              <td>
-                <select
-                  style={{ width: 'auto' }}
-                  value={u.role}
-                  disabled={roleBusy === u.id || !u.is_active}
-                  onChange={(e) => changeRole(u, e.target.value)}
-                >
-                  <option value="design">Design Team</option>
-                  <option value="manager">Manager</option>
-                  <option value="admin">Admin</option>
-                  <option value="top">Top Management</option>
-                </select>
-              </td>
+              <td>{ROLE_LABEL[u.role] || u.role}</td>
               <td>{u.title || '—'}</td>
               <td>{ownedCounts[u.id] || 0}</td>
               <td>
-                <Pill text={u.is_active ? 'Active' : 'Inactive'} cls={u.is_active ? 'p-ok' : 'p-bad'} />
+                {!u.password_set ? (
+                  <Pill text="Pending" cls="p-warn" />
+                ) : (
+                  <Pill text={u.is_active ? 'Active' : 'Inactive'} cls={u.is_active ? 'p-ok' : 'p-bad'} />
+                )}
               </td>
               <td className="act">
                 <button className="btn sm" onClick={() => setEditing(u)} type="button">

@@ -26,6 +26,7 @@ class UserOut(BaseModel):
     role: RoleEnum
     title: str | None
     is_active: bool
+    password_set: bool
 
     model_config = {"from_attributes": True}
 

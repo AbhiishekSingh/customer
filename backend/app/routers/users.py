@@ -1,13 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_admin
 from app.core.errors import conflict, not_found, validation_error
 from app.core.security import random_token
+from app.models.enums import RoleEnum
 from app.models.user import PasswordResetToken, User
 from app.schemas.user import UserCreate, UserCreateOut, UserOut, UserUpdate
 from app.services.audit import audit
@@ -19,6 +20,23 @@ import logging
 logger = logging.getLogger("abg.users")
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
+
+
+def _active_admin_count(db: Session) -> int:
+    return db.scalar(
+        select(func.count()).select_from(User).where(User.role == RoleEnum.admin, User.is_active == True)  # noqa: E712
+    ) or 0
+
+
+def _block_if_removes_last_admin(db: Session, user: User, final_role: RoleEnum, final_active: bool) -> None:
+    """§ at least one admin must always remain, so the system is never locked out of its own
+    admin-only screens (Users & roles, Categories, Settings). Only matters when the user being
+    changed is CURRENTLY an active admin and the change would take them out of that state (role
+    change away from admin, or deactivation) — any other edit is unaffected."""
+    was_active_admin = user.role == RoleEnum.admin and user.is_active
+    would_stay_active_admin = final_role == RoleEnum.admin and final_active
+    if was_active_admin and not would_stay_active_admin and _active_admin_count(db) <= 1:
+        raise validation_error("At least one active admin must remain — promote another user to Admin first.")
 
 
 @router.get("", response_model=list[UserOut])
@@ -74,6 +92,9 @@ def update_user(user_id: uuid.UUID, payload: UserUpdate, db: Session = Depends(g
     if not user:
         raise not_found("User not found")
     data = payload.model_dump(exclude_unset=True)
+    final_role = data.get("role", user.role)
+    final_active = data.get("is_active", user.is_active)
+    _block_if_removes_last_admin(db, user, final_role, final_active)
     for field, value in data.items():
         setattr(user, field, value)
     audit(db, user_id=admin.id, action="update_user", entity_type="user", entity_id=user.id, detail=data)
@@ -88,6 +109,7 @@ def deactivate_user(user_id: uuid.UUID, db: Session = Depends(get_db), admin: Us
     user = db.get(User, user_id)
     if not user:
         raise not_found("User not found")
+    _block_if_removes_last_admin(db, user, user.role, False)
     user.is_active = False
     audit(db, user_id=admin.id, action="deactivate_user", entity_type="user", entity_id=user.id)
     db.commit()

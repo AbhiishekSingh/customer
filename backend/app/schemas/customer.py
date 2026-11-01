@@ -178,6 +178,7 @@ class CustomerImportResult(BaseModel):
 
 class CustomerOut(BaseModel):
     id: uuid.UUID
+    customer_code: str
     name: str
     category: str | None
     city: str | None
