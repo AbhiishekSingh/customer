@@ -1,13 +1,22 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Index, String, Text, text
+from sqlalchemy import Boolean, Enum, ForeignKey, Index, Sequence, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import Timestamped, UUIDPk
 from app.models.enums import BlacklistCatEnum, StatusEnum
+
+# Bound to Base.metadata (not just referenced by raw SQL) so Base.metadata.create_all() — what
+# every seed script and the test suite use to stand up a brand-new database — creates this
+# sequence automatically along with the tables. scripts/migrate_customer_code.py's own
+# `CREATE SEQUENCE IF NOT EXISTS` still runs safely on an ALREADY-existing production database
+# (where create_all() only adds what's missing and never touches the existing customers table) —
+# the two are complementary, not redundant: this covers "set up a database from zero", the
+# migration script covers "add this to a database that already has customers in it".
+customer_code_seq = Sequence("customer_code_seq", start=1, metadata=Base.metadata)
 
 
 def _next_customer_code(context) -> str:
