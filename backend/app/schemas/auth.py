@@ -15,7 +15,10 @@ ROLE_LABELS = {
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    role_selected: RoleEnum
+    # No longer collected from the UI (login is now plain email+password, no role tile) — kept
+    # optional so an old cached frontend build mid-rollout still logs in fine. The server never
+    # trusted this for authorization anyway; the real role always comes from the DB record.
+    role_selected: RoleEnum | None = None
 
     @field_validator("password")
     @classmethod

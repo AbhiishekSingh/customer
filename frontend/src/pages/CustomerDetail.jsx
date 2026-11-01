@@ -22,12 +22,14 @@ export default function CustomerDetail() {
   const [showEvidence, setShowEvidence] = useState(false)
 
   const { data, error, loading, reload } = useApi(async () => {
-    const [customer, engagement, visits, directory, swatchHistory] = await Promise.all([
+    const [customer, engagement, visits, directory, swatchHistory, categories, countries] = await Promise.all([
       api.get(`/customers/${id}`),
       api.get(`/customers/${id}/engagement`),
       api.get('/visits'),
       api.get('/directory/users'),
       api.get(`/customers/${id}/swatch-history`),
+      api.get('/categories/customer'),
+      api.get('/categories/countries/all'),
     ])
     let events = []
     let exceptions = []
@@ -42,14 +44,14 @@ export default function CustomerDetail() {
       }
     }
     const custVisits = visits.filter((v) => v.customer_id === id).sort((a, b) => (a.date < b.date ? 1 : -1))
-    return { customer, engagement, custVisits, directory, events, exceptions, swatchHistory }
+    return { customer, engagement, custVisits, directory, events, exceptions, swatchHistory, categories, countries }
   }, [id, user?.role])
 
   if (loading) return <Loading />
   if (error) return <ErrBox message={error} />
   if (!data) return null
 
-  const { customer: c, engagement: e, custVisits, directory, events, exceptions, swatchHistory } = data
+  const { customer: c, engagement: e, custVisits, directory, events, exceptions, swatchHistory, categories, countries } = data
   const ownerName = directory.find((u) => u.id === c.owner_id)?.name || '—'
   const pendingEvent = events.find((ev) => ev.status === 'pending')
   const pendingException = exceptions.find((ex) => ex.status === 'pending')
@@ -232,7 +234,7 @@ export default function CustomerDetail() {
       </div>
 
       {tab === 'overview' && (
-        <OverviewTab customer={c} ownerName={ownerName} directory={directory} editing={editing} setEditing={setEditing} reload={reload} toggleMarketing={toggleMarketing} canEdit={isMgr(user?.role)} />
+        <OverviewTab customer={c} ownerName={ownerName} directory={directory} categories={categories} countries={countries} editing={editing} setEditing={setEditing} reload={reload} toggleMarketing={toggleMarketing} canEdit={isMgr(user?.role)} />
       )}
       {tab === 'contacts' && <ContactsTab customer={c} reload={reload} canEdit={isMgr(user?.role)} />}
       {tab === 'visits' && (
@@ -305,7 +307,7 @@ function SwatchHistoryTab({ history }) {
   )
 }
 
-function OverviewTab({ customer: c, ownerName, directory, editing, setEditing, reload, toggleMarketing, canEdit }) {
+function OverviewTab({ customer: c, ownerName, directory, categories, countries, editing, setEditing, reload, toggleMarketing, canEdit }) {
   const toast = useToast()
   const [form, setForm] = useState(() => ({
     name: c.name,
@@ -323,6 +325,8 @@ function OverviewTab({ customer: c, ownerName, directory, editing, setEditing, r
     owner_id: c.owner_id || '',
   }))
   const [busy, setBusy] = useState(false)
+
+  const statesForCountry = countries?.find((cn) => cn.name === form.country)?.states?.filter((s) => s.status === 'active') || []
 
   async function save() {
     setBusy(true)
@@ -346,16 +350,53 @@ function OverviewTab({ customer: c, ownerName, directory, editing, setEditing, r
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
           <Field label="Category">
-            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              <option value="">— none —</option>
+              {categories?.filter((cat) => cat.status === 'active').map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+              {form.category && !categories?.some((cat) => cat.status === 'active' && cat.name === form.category) ? (
+                <option value={form.category}>{form.category}</option>
+              ) : null}
+            </select>
           </Field>
           <Field label="City">
             <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
           </Field>
-          <Field label="State">
-            <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
-          </Field>
           <Field label="Country">
-            <input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+            <select
+              value={form.country}
+              onChange={(e) => setForm({ ...form, country: e.target.value, state: '' })}
+            >
+              <option value="">— none —</option>
+              {countries?.filter((cn) => cn.status === 'active').map((cn) => (
+                <option key={cn.id} value={cn.name}>
+                  {cn.name}
+                </option>
+              ))}
+              {form.country && !countries?.some((cn) => cn.status === 'active' && cn.name === form.country) ? (
+                <option value={form.country}>{form.country}</option>
+              ) : null}
+            </select>
+          </Field>
+          <Field label="State">
+            {statesForCountry.length || form.state ? (
+              <select value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })}>
+                <option value="">— none —</option>
+                {statesForCountry.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+                {form.state && !statesForCountry.some((s) => s.name === form.state) ? (
+                  <option value={form.state}>{form.state}</option>
+                ) : null}
+              </select>
+            ) : (
+              <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="Select a country first" />
+            )}
           </Field>
           <Field label="Pincode">
             <input inputMode="numeric" maxLength={6} value={form.pincode} onChange={(e) => setForm({ ...form, pincode: onlyDigits(e.target.value, 6) })} />

@@ -38,7 +38,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
-GENERIC_LOGIN_ERROR = "Check your role, email and password"
+GENERIC_LOGIN_ERROR = "Check your email and password"
 
 
 def _me(user: User) -> MeResponse:
@@ -72,9 +72,9 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     if not user.password_hash or not verify_password(payload.password, user.password_hash):
         fail(user)
 
-    # Role tile is a UX convenience only — the server always checks it against the real stored role.
-    if user.role != payload.role_selected:
-        fail(user)
+    # Login no longer collects a role tile from the UI — the real role always comes from the DB
+    # record (user.role), never from client input, so there's nothing to cross-check here anymore.
+    # (If an old cached frontend build still sends role_selected, it's simply ignored.)
 
     # success: reset lockout state
     user.failed_attempts = 0

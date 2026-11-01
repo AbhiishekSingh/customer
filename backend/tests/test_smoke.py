@@ -21,14 +21,19 @@ def _uniq(prefix: str) -> str:
 
 # ---------- auth ----------
 
-def test_login_requires_matching_role(client, auth):
+def test_login_no_longer_requires_or_checks_a_role_selection(client):
+    """Login is now plain email+password (no role tile in the UI) — role_selected is accepted
+    for backward compatibility with any stale cached frontend build but is never checked against
+    the account's real role, and a login with no role_selected at all must succeed just the same."""
     r = client.post("/auth/login", json={"email": "priya.nair@example.com", "password": "Passw0rd!123", "role_selected": "admin"})
-    assert r.status_code == 401
-    assert r.json()["detail"]["error"]["code"] == "UNAUTHORIZED"
+    assert r.status_code == 200, r.text  # mismatched role_selected is simply ignored now
+
+    r2 = client.post("/auth/login", json={"email": "priya.nair@example.com", "password": "Passw0rd!123"})
+    assert r2.status_code == 200, r2.text  # omitting it entirely also works
 
 
 def test_login_wrong_password(client):
-    r = client.post("/auth/login", json={"email": "priya.nair@example.com", "password": "wrong", "role_selected": "design"})
+    r = client.post("/auth/login", json={"email": "priya.nair@example.com", "password": "wrong"})
     assert r.status_code == 401
 
 

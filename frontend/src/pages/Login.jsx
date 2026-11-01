@@ -4,17 +4,10 @@ import { useAuth } from '../context/AuthContext'
 import { ErrBox } from '../components/ui'
 import Icon from '../components/Icon'
 
-const ROLES = [
-  { key: 'design', label: 'Design', ic: 'edit-pencil' },
-  { key: 'manager', label: 'Manager', ic: 'user-check' },
-  { key: 'admin', label: 'Admin', ic: 'settings' },
-  { key: 'top', label: 'Top Mgmt', ic: 'star' },
-]
-
 export default function Login() {
-  const [role, setRole] = useState(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const { login } = useAuth()
@@ -22,14 +15,10 @@ export default function Login() {
 
   async function submit(e) {
     e.preventDefault()
-    if (!role) {
-      setErr('Please select your role above.')
-      return
-    }
     setErr('')
     setBusy(true)
     try {
-      await login(email.trim(), password, role)
+      await login(email.trim(), password)
       navigate('/dashboard')
     } catch (e2) {
       setErr(e2.message || 'Sign-in failed')
@@ -48,21 +37,6 @@ export default function Login() {
         <form className="card" style={{ marginTop: 22 }} onSubmit={submit}>
           <ErrBox message={err} />
 
-          <label className="role-label">Sign in as</label>
-          <div className="role-row">
-            {ROLES.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                className={'role-chip' + (role === r.key ? ' active' : '')}
-                onClick={() => setRole(r.key)}
-              >
-                <span className="ic"><Icon name={r.ic} size={16} /></span>
-                {r.label}
-              </button>
-            ))}
-          </div>
-
           <div className="field">
             <label>Email</label>
             <input
@@ -76,13 +50,26 @@ export default function Login() {
           </div>
           <div className="field">
             <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="pw-field">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                className="pw-toggle"
+                onClick={() => setShowPassword((s) => !s)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                <Icon name={showPassword ? 'eye-off' : 'eye'} size={17} />
+              </button>
+            </div>
           </div>
 
           <button className="btn primary" type="submit" disabled={busy} style={{ width: '100%' }}>

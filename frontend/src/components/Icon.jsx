@@ -31,6 +31,8 @@ const PATHS = {
   'dots-vertical': <><circle cx="12" cy="5" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="12" cy="19" r="1.4" /></>,
   download: <><path d="M12 3.5v11" /><polyline points="7.5 10.5 12 15 16.5 10.5" /><path d="M4.5 17.5v2a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2" /></>,
   search: <><circle cx="11" cy="11" r="7.2" /><line x1="21" y1="21" x2="16.2" y2="16.2" /></>,
+  eye: <><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" /><circle cx="12" cy="12" r="3" /></>,
+  'eye-off': <><path d="M3 3l18 18" /><path d="M10.6 5.2A10.6 10.6 0 0 1 12 5c7 0 10.5 7 10.5 7a15.6 15.6 0 0 1-3.4 4.4M6.6 6.6C3.4 8.6 1.5 12 1.5 12s3.5 7 10.5 7c1.4 0 2.6-.2 3.7-.6" /><path d="M9.9 10a3 3 0 0 0 4.1 4.1" /></>,
 }
 
 export default function Icon({ name, size = 16, strokeWidth = 1.8, className = '' }) {

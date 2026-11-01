@@ -47,8 +47,10 @@ export function AuthProvider({ children }) {
       .finally(() => setReady(true))
   }, [])
 
-  const login = useCallback(async (email, password, roleSelected) => {
-    const data = await api.post('/auth/login', { email, password, role_selected: roleSelected }, { auth: false })
+  const login = useCallback(async (email, password) => {
+    // No role tile in the UI anymore — role comes from the account record itself, not a client
+    // selection. The server never trusted the client-sent role for authorization anyway.
+    const data = await api.post('/auth/login', { email, password }, { auth: false })
     setTokens(data.access_token, data.refresh_token)
     try {
       localStorage.setItem('abg_user', JSON.stringify(data.user))
