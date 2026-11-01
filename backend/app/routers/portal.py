@@ -148,6 +148,7 @@ def _status_payload(db: Session, mail: Mail, settings: dict) -> dict:
                 "data": latest_resp.raw_data,
                 "by_name": latest_resp.by_name,
                 "by_designation": latest_resp.by_designation,
+                "by_email": latest_resp.by_email,
                 "submitted_at": latest_resp.submitted_at.isoformat(),
                 "version": response_count,
             }

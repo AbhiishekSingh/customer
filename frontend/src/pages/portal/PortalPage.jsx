@@ -140,9 +140,14 @@ function AlreadyAnswered({ status, onEdit }) {
 function ResponseForm({ token, status, onDone }) {
   const n = status.mail_number
   const prev = status.latest_response?.data || {}
-  const [byName, setByName] = useState(status.latest_response?.by_name || status.contact?.name || '')
-  const [byDesignation, setByDesignation] = useState(status.latest_response?.by_designation || status.contact?.designation || '')
-  const [byEmail, setByEmail] = useState(status.contact?.email || '')
+  // Don't default these to the mail's original "To" contact (status.contact) — the same link is
+  // now also cc'd to every other active contact at the company, so whoever actually opens and
+  // fills this in may be a different person entirely. Pre-filling someone else's name here would
+  // silently misattribute their answer. Editing an already-submitted response is the one case
+  // where a default is safe, since that's presumably the same person who answered last time.
+  const [byName, setByName] = useState(status.latest_response?.by_name || '')
+  const [byDesignation, setByDesignation] = useState(status.latest_response?.by_designation || '')
+  const [byEmail, setByEmail] = useState(status.latest_response?.by_email || '')
   const [testStatus, setTestStatus] = useState(prev.testStatus || '')
   const [proto, setProto] = useState(prev.proto || '')
   const [orderPlaced, setOrderPlaced] = useState(prev.orderPlaced || '')
