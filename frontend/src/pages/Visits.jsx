@@ -65,7 +65,14 @@ export default function Visits() {
       active: data.filter((r) => r.stage === 'In progress' && !r.onHold),
       hold: data.filter((r) => r.onHold),
       ordered: data.filter((r) => r.vc.order_placed),
-      completed: data.filter((r) => r.stage === 'Completed'),
+      // "Completed" = nothing left to send. Mostly that's stage === 'Completed', but a follow-up
+      // that closed early ("Not going ahead") belongs here too once every mail is resolved one
+      // way or another (sent/replied/skipped/bounced) — it previously fell through every tab
+      // except "All" because visitStageText() reports "Not going ahead" instead of "Completed"
+      // for a closed follow-up, even when nothing is still scheduled.
+      completed: data.filter(
+        (r) => r.stage === 'Completed' || (r.stage === 'Not going ahead' && !r.mails.some((m) => m.status === 'scheduled'))
+      ),
       all: data,
     }
   }, [data])
