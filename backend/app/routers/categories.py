@@ -22,7 +22,7 @@ from app.services.audit import audit
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
-VALID_TYPES = {"fabric", "customer"}
+VALID_TYPES = {"fabric", "customer", "color"}
 
 
 # ---------- flat categories (fabric / customer) ----------

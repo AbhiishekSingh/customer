@@ -65,7 +65,7 @@ def get_mail_draft(mail_id: uuid.UUID, db: Session = Depends(get_db), user: User
     template = get_template(db, mail.mail_number, variant)
     settings = get_settings(db)
     return {
-        "to_email": contact.email, "cc": build_cc_list(db, customer, visit.owner_id, settings),
+        "to_email": contact.email, "cc": build_cc_list(db, customer, visit.owner_id, settings, to_contact=contact),
         "subject": template.subject, "body": template.body,
         "customer_name": customer.name, "contact_name": contact.name, "contact_designation": contact.designation,
     }
@@ -274,7 +274,7 @@ def get_mail_content(mail_id: uuid.UUID, db: Session = Depends(get_db), user: Us
         items=items_text(db, vc), link="[link generated when this mail is sent]",
         link_validity_hours=settings["link_validity_days"] * 24,
     )
-    return {"is_preview": True, "to_email": contact.email, "cc": build_cc_list(db, customer, visit.owner_id, settings), "subject": subject, "body": body, "sent_at": None}
+    return {"is_preview": True, "to_email": contact.email, "cc": build_cc_list(db, customer, visit.owner_id, settings, to_contact=contact), "subject": subject, "body": body, "sent_at": None}
 
 
 @router.post("/admin/run-scheduler")

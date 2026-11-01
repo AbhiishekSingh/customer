@@ -25,6 +25,8 @@ export default function NewVisitEntry() {
   const { data: customers, error: custErr, loading: custLoading, reload: reloadCustomers } = useApi(() => api.get('/customers'), [])
   const { data: fabrics, loading: fabLoading } = useApi(() => api.get('/fabrics', { active_only: true }), [])
   const { data: directory } = useApi(() => api.get('/directory/users'), [])
+  const { data: colors } = useApi(() => api.get('/categories/color'), [])
+  const activeColors = useMemo(() => (colors || []).filter((c) => c.status === 'active'), [colors])
 
   const [customerId, setCustomerId] = useState(preselected)
   const [showEvidence, setShowEvidence] = useState(false)
@@ -36,7 +38,7 @@ export default function NewVisitEntry() {
   const [presentedBy, setPresentedBy] = useState([])
   const [attachments, setAttachments] = useState([]) // [{ url, name }]
   const [attendeeIds, setAttendeeIds] = useState([])
-  const [lines, setLines] = useState([{ representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1 }])
+  const [lines, setLines] = useState([{ representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1, color: '' }])
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [reviewing, setReviewing] = useState(false)
@@ -119,10 +121,20 @@ export default function NewVisitEntry() {
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)))
   }
   function addLine() {
-    setLines((ls) => [...ls, { representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1 }])
+    setLines((ls) => [...ls, { representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1, color: '' }])
   }
   function removeLine(i) {
     setLines((ls) => ls.filter((_, idx) => idx !== i))
+  }
+  // Colors offered for a line: the item's own available colours (Fabric.colour_variants),
+  // narrowed to ones still active in the Colors master — falling back to every active colour
+  // when the item hasn't had any colours set up yet, so the field is never a dead end.
+  function colorOptionsFor(fabricCode) {
+    const activeNames = activeColors.map((c) => c.name)
+    const fabric = (fabrics || []).find((f) => f.code === fabricCode)
+    const itemColors = (fabric?.colour_variants || '').split(',').map((s) => s.trim()).filter(Boolean)
+    const narrowed = itemColors.filter((name) => activeNames.includes(name))
+    return narrowed.length ? narrowed : activeNames
   }
 
   const validLines = lines.filter((l) => l.representative_contact_id && l.fabric_code)
@@ -363,6 +375,14 @@ export default function NewVisitEntry() {
                       </option>
                     ))}
                   </select>
+                  <select style={{ flex: '0 1 130px' }} value={l.color || ''} onChange={(e) => updateLine(i, 'color', e.target.value)}>
+                    <option value="">— color —</option>
+                    {colorOptionsFor(l.fabric_code).map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
                   <input className="qty" type="number" min="1" value={l.qty} onChange={(e) => updateLine(i, 'qty', e.target.value)} />
                   {lines.length > 1 ? (
                     <button type="button" className="btn ghost sm icon-btn" onClick={() => removeLine(i)} title="Remove">
@@ -460,6 +480,7 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
           <th>Attendee</th>
           <th>Fabric</th>
           <th>Type</th>
+          <th>Color</th>
           <th>Qty</th>
           <th>Sentiment</th>
           <th>Note</th>
@@ -476,6 +497,7 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
                 <b>{l.fabric_code}</b> {f?.name || ''}
               </td>
               <td>{l.swatch_type}</td>
+              <td>{l.color || '—'}</td>
               <td>{l.qty}</td>
               <td>
                 <select style={{ width: 'auto' }} value={fb.sentiment || ''} onChange={(e) => onFeedbackChange(i, 'sentiment', e.target.value)}>

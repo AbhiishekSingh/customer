@@ -241,6 +241,12 @@ export default function Categories() {
 
   const fabricCatCounts = fabrics ? countBy(fabrics, (f) => f.quality_category) : null
   const customerCatCounts = customers ? countBy(customers, (c) => c.category) : null
+  const colorCounts = fabrics
+    ? countBy(
+        fabrics.flatMap((f) => (f.colour_variants || '').split(',').map((s) => s.trim()).filter(Boolean)),
+        (name) => name
+      )
+    : null
   const countryCounts = customers ? countBy(customers, (c) => c.country) : null
   const stateCounts = customers
     ? countBy(
@@ -252,9 +258,10 @@ export default function Categories() {
   return (
     <div>
       <PageHead title="Categories" sub="Lists used across the system. Categories are never deleted, only deactivated." />
-      <div className="grid g2">
+      <div className="grid g3">
         <CategoryBlock title="Fabric categories" hint="Used to group items (swatches) and filter them when logging a visit." type="fabric" canEdit={canEdit} usageCounts={fabricCatCounts} />
         <CategoryBlock title="Customer categories" hint="Used to group customers and filter customers and reports." type="customer" canEdit={canEdit} usageCounts={customerCatCounts} />
+        <CategoryBlock title="Colors" hint="Used on the Items form (colours an item is available in) and when logging which colour was given on a visit." type="color" canEdit={canEdit} usageCounts={colorCounts} />
       </div>
       <div style={{ marginTop: 16 }}>
         <CountriesStates canEdit={canEdit} countryCounts={countryCounts} stateCounts={stateCounts} />

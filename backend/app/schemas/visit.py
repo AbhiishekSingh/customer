@@ -11,6 +11,8 @@ class VisitLineIn(BaseModel):
     fabric_code: str
     swatch_type: SwatchTypeEnum = SwatchTypeEnum.hanger
     qty: int = 1
+    # Which color (categories(type='color').name) was given on this line. Optional.
+    color: str | None = None
     # Optional — captured right at visit-entry time (the Review step), before any follow-up mail
     # exists. Stored as an ItemFeedback row with no mail_response_id (see app/models/mail.py).
     sentiment: str | None = None
@@ -123,6 +125,7 @@ class VisitItemOut(BaseModel):
     fabric_id: uuid.UUID
     swatch_type: SwatchTypeEnum
     qty: int
+    color: str | None = None
     # Populated only by GET /visits/{id} (see visits.py get_visit) — the latest feedback logged
     # with no mail reply behind it, i.e. typed in directly at visit-entry time. None elsewhere.
     visit_entry_feedback: VisitEntryFeedbackOut | None = None

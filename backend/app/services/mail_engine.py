@@ -158,14 +158,20 @@ MAIL_PURPOSE = {
 }
 
 
-def build_cc_list(db: Session, customer: Customer, owner_id: uuid.UUID | None, settings: dict, extra_cc: str | None = None) -> str | None:
+def build_cc_list(db: Session, customer: Customer, owner_id: uuid.UUID | None, settings: dict,
+                   extra_cc: str | None = None, to_contact: Contact | None = None) -> str | None:
     """Every follow-up email goes out to the customer's own contact as the To:, and in Cc to
-    everyone on our side who should see the exchange: the company's own general/marketing mailbox
-    (Customer.company_email, when set), whoever is currently assigned to this customer
-    (Customer.owner_id — currently always exactly one person, but this is written to keep working
-    unchanged if that ever becomes a list), the admin-configured marketing_cc mailbox, and finally
-    any one-off extra recipient added for a single manual send. Duplicates (same address, case-
-    insensitive) are collapsed so the same person never gets the email twice."""
+    everyone else who should see the exchange: EVERY OTHER active contact on this customer who
+    has an email set (so, e.g., if both the Sales Head and a second attendee are active contacts,
+    both get the thread even though the mail is addressed "To" just one of them) — plus the
+    company's own general/marketing mailbox (Customer.company_email, when set), whoever is
+    currently assigned to this customer (Customer.owner_id — currently always exactly one person,
+    but this is written to keep working unchanged if that ever becomes a list), the
+    admin-configured marketing_cc mailbox, and finally any one-off extra recipient added for a
+    single manual send. `to_contact` (the person this mail is already addressed "To") is excluded
+    from that other-active-contacts list so they're never cc'd on a mail already addressed to
+    them. Duplicates (same address, case-insensitive) are collapsed so the same person never gets
+    the email twice."""
     from app.models.user import User  # local import avoids a circular import at module load time
 
     owner_email = None
@@ -173,7 +179,12 @@ def build_cc_list(db: Session, customer: Customer, owner_id: uuid.UUID | None, s
         owner = db.get(User, owner_id)
         owner_email = owner.email if owner else None
 
-    candidates = [settings.get("marketing_cc"), customer.company_email, owner_email, extra_cc]
+    other_contact_emails = [
+        c.email for c in (customer.contacts or [])
+        if c.email and sv(c.status) == "active" and (to_contact is None or c.id != to_contact.id)
+    ]
+
+    candidates = [settings.get("marketing_cc"), customer.company_email, owner_email, *other_contact_emails, extra_cc]
     seen: set[str] = set()
     out: list[str] = []
     for addr in candidates:
@@ -245,11 +256,11 @@ def send_mail(db: Session, vc: VisitContact, mail: Mail, send_date: date, settin
     # "/portal/abc123" is useless once it's sitting in someone's inbox instead of this app's UI.
     email_body = body.replace(link, f"{app_config.FRONTEND_URL.rstrip('/')}{link}")
 
-    # Cc goes to everyone on our side who should see this exchange — the company's own mailbox,
-    # whoever is assigned to the customer, and the configured marketing mailbox. Extra recipient
-    # (from the "review before sending" dialog) is additive on top of all of that, never a
-    # replacement for it.
-    cc = build_cc_list(db, customer, visit.owner_id, settings, extra_cc)
+    # Cc goes to everyone else who should see this exchange — every other active contact at the
+    # customer, the company's own mailbox, whoever is assigned to the customer, and the configured
+    # marketing mailbox. Extra recipient (from the "review before sending" dialog) is additive on
+    # top of all of that, never a replacement for it.
+    cc = build_cc_list(db, customer, visit.owner_id, settings, extra_cc, to_contact=contact)
 
     send_error: str | None = None
     try:

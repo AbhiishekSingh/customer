@@ -68,5 +68,10 @@ class VisitItem(Base, UUIDPk, Timestamped):
     fabric_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("fabrics.id"), nullable=False)
     swatch_type: Mapped[SwatchTypeEnum] = mapped_column(Enum(SwatchTypeEnum, name="swatch_type_enum"), default=SwatchTypeEnum.hanger, nullable=False)
     qty: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # Which specific color (categories(type='color').name) was actually given on this swatch line.
+    # Free-standing from Fabric.colour_variants (the item's AVAILABLE colors) — this records the
+    # ONE color handed over for this particular line. Optional/nullable: older rows and CSV-import
+    # rows never set it, and staff can still leave it blank.
+    color: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     visit_contact: Mapped["VisitContact"] = relationship(back_populates="items")

@@ -97,6 +97,7 @@ export default function Register() {
     { key: 'person', label: 'Person', get: (r) => r.contact?.name || '' },
     { key: 'code', label: 'Sort no.', get: (r) => r.fabric?.code || '', render: (r) => <b>{r.fabric?.code}</b> },
     { key: 'cat', label: 'Category', get: (r) => r.fabric?.quality_category || '' },
+    { key: 'color', label: 'Color', get: (r) => r.it.color || '' },
     { key: 'type', label: 'Type', get: (r) => r.it.swatch_type },
     { key: 'qty', label: 'Qty', type: 'number', get: (r) => r.it.qty },
     { key: 'm', label: '≈ m', type: 'number', get: (r) => Math.round(r.m * 10) / 10 },

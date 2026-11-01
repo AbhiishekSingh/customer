@@ -34,6 +34,7 @@ export default function Fabrics() {
   const [editing, setEditing] = useState(null) // fabric object, or {} for new
   const { data: fabrics, error, loading, reload } = useApi(() => api.get('/fabrics'), [])
   const { data: categories } = useApi(() => api.get('/categories/fabric'), [])
+  const { data: colors } = useApi(() => api.get('/categories/color'), [])
   const [importing, setImporting] = useState(false)
   const [showInactive, setShowInactive] = useState(false)
 
@@ -96,7 +97,7 @@ export default function Fabrics() {
           </button>
         ) : undefined}
       />
-      {editing ? <FabricModal fabric={editing} categories={categories || []} onClose={() => setEditing(null)} onDone={reload} /> : null}
+      {editing ? <FabricModal fabric={editing} categories={categories || []} colors={colors || []} onClose={() => setEditing(null)} onDone={reload} /> : null}
       {importing ? (
         <CsvImportModal
           title="Import items from CSV"
@@ -113,9 +114,10 @@ export default function Fabrics() {
   )
 }
 
-function FabricModal({ fabric, categories, onClose, onDone }) {
+function FabricModal({ fabric, categories, colors, onClose, onDone }) {
   const toast = useToast()
   const isNew = !fabric.id
+  const existingColors = (fabric.colour_variants || '').split(',').map((s) => s.trim()).filter(Boolean)
   const [form, setForm] = useState({
     code: fabric.code || '',
     name: fabric.name || '',
@@ -123,19 +125,23 @@ function FabricModal({ fabric, categories, onClose, onDone }) {
     composition: fabric.composition || '',
     gsm: fabric.gsm || '',
     description: fabric.description || '',
-    colour_variants: fabric.colour_variants || '',
     supplier: fabric.supplier || '',
     photo_url: fabric.photo_url || '',
     status: fabric.status || 'active',
   })
+  const [colourVariants, setColourVariants] = useState(existingColors)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  function toggleColor(name) {
+    setColourVariants((cs) => (cs.includes(name) ? cs.filter((x) => x !== name) : [...cs, name]))
+  }
 
   async function save() {
     setErr('')
     setBusy(true)
     try {
-      const payload = { ...form, gsm: form.gsm ? parseFloat(form.gsm) : null }
+      const payload = { ...form, gsm: form.gsm ? parseFloat(form.gsm) : null, colour_variants: colourVariants.join(', ') || null }
       if (isNew) {
         delete payload.status
         await api.post('/fabrics', payload)
@@ -191,8 +197,22 @@ function FabricModal({ fabric, categories, onClose, onDone }) {
         <Field label="GSM">
           <input type="number" value={form.gsm} onChange={(e) => setForm({ ...form, gsm: e.target.value })} />
         </Field>
-        <Field label="Colour variants">
-          <input value={form.colour_variants} onChange={(e) => setForm({ ...form, colour_variants: e.target.value })} />
+        <Field label="Colour variants" hint="Which colours this item is available in — pick from the Colors master (Masters › Categories).">
+          <div className="chips">
+            {colors.map((c) => (
+              <label key={c.id} className="chip" style={{ cursor: 'pointer' }}>
+                <input type="checkbox" checked={colourVariants.includes(c.name)} onChange={() => toggleColor(c.name)} style={{ marginRight: 4 }} />
+                {c.name}
+              </label>
+            ))}
+            {existingColors.filter((name) => !colors.some((c) => c.name === name)).map((name) => (
+              <label key={name} className="chip" style={{ cursor: 'pointer', opacity: 0.6 }} title="No longer in the Colors master">
+                <input type="checkbox" checked={colourVariants.includes(name)} onChange={() => toggleColor(name)} style={{ marginRight: 4 }} />
+                {name} (inactive)
+              </label>
+            ))}
+            {!colors.length ? <span className="hint">No colours set up yet — add some under Masters › Categories.</span> : null}
+          </div>
         </Field>
         <Field label="Supplier">
           <input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
