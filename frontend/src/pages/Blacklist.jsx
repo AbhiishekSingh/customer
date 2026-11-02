@@ -27,13 +27,28 @@ export default function Blacklist() {
       pending.blacklist_events.map(async (ev) => ({ ...ev, approvals: await api.get(`/blacklist-events/${ev.id}/approvals`) }))
     )
     const blacklisted = customers.filter((c) => c.blacklist_cat)
-    return { events: eventsWithApprovals, exceptions: pending.exceptions, custById, userById, blacklisted, bCandidates }
+    // Since/Reason/Approved by for the "Blacklisted companies" table — the approved event for
+    // each company's current category, plus who on Top Management approved it. Same per-row
+    // fetch-and-attach pattern as pending.blacklist_events above.
+    const blacklistInfo = Object.fromEntries(
+      await Promise.all(
+        blacklisted.map(async (c) => {
+          const evs = await api.get(`/customers/${c.id}/blacklist-events`)
+          const approvedEvent = evs.find((e) => e.status === 'approved' && e.cat === c.blacklist_cat)
+          if (!approvedEvent) return [c.id, null]
+          const approvals = await api.get(`/blacklist-events/${approvedEvent.id}/approvals`)
+          const approvedBy = approvals.filter((a) => a.decision).map((a) => userById[a.approver_id]?.name).filter(Boolean)
+          return [c.id, { since: approvedEvent.created_at, reason: approvedEvent.reason, approvedBy }]
+        })
+      )
+    )
+    return { events: eventsWithApprovals, exceptions: pending.exceptions, custById, userById, blacklisted, bCandidates, blacklistInfo }
   }, [])
 
   if (loading) return <Loading />
   if (error) return <ErrBox message={error} />
 
-  const { events, exceptions, custById, userById, blacklisted, bCandidates } = data
+  const { events, exceptions, custById, userById, blacklisted, bCandidates, blacklistInfo } = data
   const isTop = user?.role === 'top'
   const isAdmin = user?.role === 'admin' || user?.role === 'top'
 
@@ -246,6 +261,9 @@ export default function Blacklist() {
             <tr>
               <th>Company</th>
               <th>Category</th>
+              <th>Since</th>
+              <th>Reason</th>
+              <th>Approved by</th>
               <th></th>
             </tr>
             {blacklisted.map((c) => (
@@ -257,6 +275,9 @@ export default function Blacklist() {
                 <td>
                   <Pill text={'Blacklist ' + c.blacklist_cat} cls="p-bad" />
                 </td>
+                <td style={{ whiteSpace: 'nowrap' }}>{blacklistInfo[c.id]?.since ? fmtDate(blacklistInfo[c.id].since) : '—'}</td>
+                <td>{blacklistInfo[c.id]?.reason || '—'}</td>
+                <td>{blacklistInfo[c.id]?.approvedBy?.length ? blacklistInfo[c.id].approvedBy.join(', ') : '—'}</td>
                 <td className="act" onClick={(e) => e.stopPropagation()}>
                   {whyBtn(c.id, c.name)}{' '}
                   {isAdmin ? (

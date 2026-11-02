@@ -5,7 +5,7 @@ import { useApi } from '../api/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { Loading, ErrBox, PageHead, Panel, Empty, Field, blPill, tagPill, fmtDate, onlyDigits, cleanPhone } from '../components/ui'
-import { BL_TEXT } from '../lib/domain'
+import { BL_TEXT, swatchMeters, fmtMeters } from '../lib/domain'
 import EvidenceModal from '../components/EvidenceModal'
 import Icon from '../components/Icon'
 
@@ -45,14 +45,53 @@ export default function CustomerDetail() {
       }
     }
     const custVisits = visits.filter((v) => v.customer_id === id).sort((a, b) => (a.date < b.date ? 1 : -1))
-    return { customer, engagement, custVisits, directory, events, exceptions, swatchHistory, categories, countries }
+
+    // Team rollup for the Swatch history tab (prototype: People/Hangers/Swatches/≈Fabric/Replied,
+    // grouped per team across all this company's visits) — needs each visit's mails to work out
+    // reply status, same per-visit fetch pattern Register.jsx uses for the "By company & team" view.
+    const mailsByVisit = {}
+    await Promise.all(
+      custVisits.map(async (v) => {
+        mailsByVisit[v.id] = await api.get(`/visits/${v.id}/mails`)
+      })
+    )
+    const teamMap = new Map()
+    for (const v of custVisits) {
+      const vMails = mailsByVisit[v.id] || []
+      for (const vc of v.visit_contacts) {
+        const contact = customer.contacts.find((x) => x.id === vc.contact_id)
+        const teamName = customer.teams.find((t) => t.id === contact?.team_id)?.name || '—'
+        if (!teamMap.has(teamName)) {
+          teamMap.set(teamName, { team: teamName, people: new Set(), hangers: 0, swatches: 0, m: 0, sent: 0, resp: 0 })
+        }
+        const entry = teamMap.get(teamName)
+        entry.people.add(vc.contact_id)
+        for (const it of vc.items) {
+          if (it.swatch_type === 'Hanger') entry.hangers += it.qty
+          if (it.swatch_type === 'Swatch') entry.swatches += it.qty
+          entry.m += swatchMeters(it.qty, it.swatch_type)
+        }
+        const vcMails = vMails.filter((m) => m.visit_contact_id === vc.id)
+        for (const m of vcMails) {
+          if (m.status === 'sent' || m.status === 'bounced') entry.sent++
+          if (m.responses && m.responses.length) entry.resp++
+        }
+      }
+    }
+    const teamRollup = [...teamMap.values()].map((e) => ({
+      ...e,
+      peopleCount: e.people.size,
+      replyRate: e.sent ? Math.round((e.resp / e.sent) * 100) : null,
+    }))
+
+    return { customer, engagement, custVisits, directory, events, exceptions, swatchHistory, teamRollup, categories, countries }
   }, [id, user?.role])
 
   if (loading) return <Loading />
   if (error) return <ErrBox message={error} />
   if (!data) return null
 
-  const { customer: c, engagement: e, custVisits, directory, events, exceptions, swatchHistory, categories, countries } = data
+  const { customer: c, engagement: e, custVisits, directory, events, exceptions, swatchHistory, teamRollup, categories, countries } = data
   const ownerName = directory.find((u) => u.id === c.owner_id)?.name || '—'
   const pendingEvent = events.find((ev) => ev.status === 'pending')
   const pendingException = exceptions.find((ex) => ex.status === 'pending')
@@ -266,14 +305,43 @@ export default function CustomerDetail() {
           )}
         </Panel>
       )}
-      {tab === 'swatches' && <SwatchHistoryTab history={swatchHistory} />}
+      {tab === 'swatches' && <SwatchHistoryTab history={swatchHistory} teamRollup={teamRollup} />}
     </div>
   )
 }
 
-function SwatchHistoryTab({ history }) {
+function SwatchHistoryTab({ history, teamRollup }) {
   return (
-    <Panel title="Swatch history" count={history.length}>
+    <>
+      <Panel title="Swatches by team" count={teamRollup?.length || 0}>
+        {teamRollup?.length ? (
+          <table>
+            <tr>
+              <th>Team</th>
+              <th>People</th>
+              <th>Hangers</th>
+              <th>Swatches</th>
+              <th>≈ Fabric</th>
+              <th>Replied</th>
+            </tr>
+            {teamRollup.map((t) => (
+              <tr key={t.team}>
+                <td>
+                  <b>{t.team}</b>
+                </td>
+                <td>{t.peopleCount}</td>
+                <td>{t.hangers}</td>
+                <td>{t.swatches}</td>
+                <td>{fmtMeters(t.m)}</td>
+                <td>{t.replyRate == null ? '—' : `${t.replyRate}%`}</td>
+              </tr>
+            ))}
+          </table>
+        ) : (
+          <Empty text="No swatches given to this company yet." />
+        )}
+      </Panel>
+      <Panel title="Swatch history (every item)" count={history.length}>
       {history.length ? (
         <table>
           <tr>
@@ -304,7 +372,8 @@ function SwatchHistoryTab({ history }) {
       ) : (
         <Empty text="No swatches given to this company yet." />
       )}
-    </Panel>
+      </Panel>
+    </>
   )
 }
 

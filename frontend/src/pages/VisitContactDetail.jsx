@@ -5,7 +5,7 @@ import { useApi } from '../api/useApi'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { Loading, ErrBox, PageHead, Panel, Modal, Field, blPill, fmtDate } from '../components/ui'
-import { BL_TEXT, mailName, MAIL_PURPOSE, mailState, respSummary, latestItemFeedback, humanKey } from '../lib/domain'
+import { BL_TEXT, mailName, MAIL_PURPOSE, mailState, respSummary, latestItemFeedback, humanKey, swatchMeters, fmtMeters } from '../lib/domain'
 import DatePicker from '../components/DatePicker'
 import ImageUpload, { displaySrc } from '../components/ImageUpload'
 
@@ -244,14 +244,17 @@ export default function VisitContactDetail() {
 
       <div className="card">
         <h3 style={{ marginBottom: 8 }}>
-          Swatches taken by {contact?.name} — {vc.items.reduce((a, i) => a + i.qty, 0)} pcs
+          Swatches taken by {contact?.name} — {vc.items.reduce((a, i) => a + i.qty, 0)} pcs, ≈
+          {fmtMeters(vc.items.reduce((a, i) => a + swatchMeters(i.qty, i.swatch_type), 0))}
         </h3>
         <table>
           <tr>
             <th>Sort no.</th>
             <th>Item</th>
+            <th>Colour</th>
             <th>Type</th>
             <th>Qty</th>
+            <th>≈ Fabric</th>
             <th>Sentiment</th>
             <th>Feedback</th>
             <th>Attachment</th>
@@ -268,8 +271,10 @@ export default function VisitContactDetail() {
                   {f?.name}
                   <div className="sub">{f?.quality_category}</div>
                 </td>
+                <td>{it.color || '—'}</td>
                 <td>{it.swatch_type}</td>
                 <td>{it.qty}</td>
+                <td>{fmtMeters(swatchMeters(it.qty, it.swatch_type))}</td>
                 <td>{fb?.sentiment ? <span className="pill p-info">{fb.sentiment}</span> : '—'}</td>
                 <td>
                   {fb?.text || '—'}

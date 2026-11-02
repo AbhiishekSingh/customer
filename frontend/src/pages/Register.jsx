@@ -4,9 +4,7 @@ import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import DataTable from '../components/DataTable'
 import { PageHead, Loading, ErrBox, fmtDate } from '../components/ui'
-import { visitStageText, visitStageCls, dotsFor } from '../lib/domain'
-
-const SWATCH_METERS = { Hanger: 1.5, Swatch: 0.3, Yardage: 1 }
+import { visitStageText, visitStageCls, dotsFor, SWATCH_METERS, swatchMeters, fmtMeters } from '../lib/domain'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -44,6 +42,9 @@ export default function Register() {
           v, vc, c, contact, team, stage,
           sortNos: [...new Set(vc.items.map((it) => fabricById[it.fabric_id]?.code).filter(Boolean))],
           totalQty: vc.items.reduce((a, it) => a + it.qty, 0),
+          hangers: vc.items.filter((it) => it.swatch_type === 'Hanger').reduce((a, it) => a + it.qty, 0),
+          swatches: vc.items.filter((it) => it.swatch_type === 'Swatch').reduce((a, it) => a + it.qty, 0),
+          m: vc.items.reduce((a, it) => a + swatchMeters(it.qty, it.swatch_type), 0),
           dots: dotsFor(vcMails),
         })
       }
@@ -59,11 +60,21 @@ export default function Register() {
         const teamName = c?.teams.find((t) => t.id === contact?.team_id)?.name || '—'
         const key = `${c?.id}::${teamName}`
         if (!teamMap.has(key)) {
-          teamMap.set(key, { company: c, team: teamName, people: new Set(), items: 0, sent: 0, resp: 0, lastTaken: null })
+          teamMap.set(key, {
+            company: c, team: teamName, people: new Set(), sortNos: new Set(),
+            items: 0, hangers: 0, swatches: 0, m: 0, sent: 0, resp: 0, lastTaken: null,
+          })
         }
         const entry = teamMap.get(key)
         entry.people.add(vc.contact_id)
         entry.items += vc.items.reduce((a, it) => a + it.qty, 0)
+        for (const it of vc.items) {
+          const code = fabricById[it.fabric_id]?.code
+          if (code) entry.sortNos.add(code)
+          if (it.swatch_type === 'Hanger') entry.hangers += it.qty
+          if (it.swatch_type === 'Swatch') entry.swatches += it.qty
+          entry.m += swatchMeters(it.qty, it.swatch_type)
+        }
         if (!entry.lastTaken || v.date > entry.lastTaken) entry.lastTaken = v.date
         const vcMails = vMails.filter((m) => m.visit_contact_id === vc.id)
         for (const m of vcMails) {
@@ -75,6 +86,7 @@ export default function Register() {
     const teamRows = [...teamMap.values()].map((e) => ({
       ...e,
       peopleCount: e.people.size,
+      sortNoCount: e.sortNos.size,
       replyRate: e.sent ? Math.round((e.resp / e.sent) * 100) : null,
     }))
 
@@ -110,6 +122,9 @@ export default function Register() {
     { key: 'team', label: 'Team', get: (r) => r.team },
     { key: 'person', label: 'Person', get: (r) => r.contact?.name || '' },
     { key: 'sortnos', label: 'Sort no.s taken', sortable: false, get: (r) => r.sortNos.join(', ') },
+    { key: 'hangers', label: 'Hangers', type: 'number', get: (r) => r.hangers },
+    { key: 'swatches', label: 'Swatches', type: 'number', get: (r) => r.swatches },
+    { key: 'm', label: '≈ Fabric', type: 'number', get: (r) => Math.round(r.m * 10) / 10, render: (r) => fmtMeters(r.m) },
     { key: 'qty', label: 'Total qty', type: 'number', get: (r) => r.totalQty },
     {
       key: 'mails', label: 'Mail 1 → 5', sortable: false, get: () => '',
@@ -128,6 +143,10 @@ export default function Register() {
     { key: 'company', label: 'Company', get: (r) => r.company?.name || '' },
     { key: 'team', label: 'Team', get: (r) => r.team },
     { key: 'people', label: 'People', type: 'number', get: (r) => r.peopleCount },
+    { key: 'sortnos', label: 'Sort nos.', type: 'number', get: (r) => r.sortNoCount },
+    { key: 'hangers', label: 'Hangers', type: 'number', get: (r) => r.hangers },
+    { key: 'swatches', label: 'Swatches', type: 'number', get: (r) => r.swatches },
+    { key: 'm', label: '≈ Fabric', type: 'number', get: (r) => Math.round(r.m * 10) / 10, render: (r) => fmtMeters(r.m) },
     { key: 'items', label: 'Items taken', type: 'number', get: (r) => r.items },
     { key: 'rate', label: 'Reply rate', type: 'number', get: (r) => r.replyRate ?? '', render: (r) => (r.replyRate == null ? '—' : `${r.replyRate}%`) },
     { key: 'last', label: 'Last taken', type: 'date', get: (r) => r.lastTaken || '', render: (r) => (r.lastTaken ? fmtDate(r.lastTaken) : '—') },

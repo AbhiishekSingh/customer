@@ -2,6 +2,17 @@
 // UI needs client-side (naming, pills, mail-state derivation for the tracker/dots). Nothing here
 // decides anything the backend doesn't already enforce — it only formats what the API returns.
 
+// Approx. running meters per piece, by swatch type — same figures the prototype used (core.js
+// swatchMeters) to estimate "≈ Fabric" given. Shared here since both the Swatch Register and the
+// per-visit items table show this estimate.
+export const SWATCH_METERS = { Hanger: 1.5, Swatch: 0.3, Yardage: 1 }
+export function swatchMeters(qty, swatchType) {
+  return (qty || 0) * (SWATCH_METERS[swatchType] || 1)
+}
+export function fmtMeters(m) {
+  return `${Math.round(m * 10) / 10} m`
+}
+
 export const BL_TEXT = {
   A: { rule: 'Replied only to Mail 5, not to the earlier 4 mails', act: 'Intimation to senior management and Marketing Head' },
   B: { rule: 'Replied to some mails but gave no closure or feedback, and is only in touch with the marketing team', act: "Intimation to the customer's company email" },
