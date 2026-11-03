@@ -103,6 +103,7 @@ export default function Register() {
   const companies = new Set(flat.map((r) => r.c?.id)).size
 
   const flatColumns = [
+    { key: 'visit_code', label: 'Visit ID', get: (r) => r.v.visit_code },
     { key: 'date', label: 'Date', type: 'date', get: (r) => r.v.date, render: (r) => fmtDate(r.v.date) },
     { key: 'company', label: 'Company', get: (r) => r.c?.name || '' },
     { key: 'team', label: 'Team', get: (r) => r.team },

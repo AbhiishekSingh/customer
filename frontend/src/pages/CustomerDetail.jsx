@@ -282,6 +282,7 @@ export default function CustomerDetail() {
           {custVisits.length ? (
             <table>
               <tr>
+                <th>Visit ID</th>
                 <th>Date</th>
                 <th>Purpose</th>
                 <th>People</th>
@@ -289,6 +290,7 @@ export default function CustomerDetail() {
               </tr>
               {custVisits.map((v) => (
                 <tr className="click" key={v.id} onClick={() => navigate(`/presentation/${v.id}`)}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{v.visit_code}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
                     <b>{fmtDate(v.date)}</b>
                   </td>

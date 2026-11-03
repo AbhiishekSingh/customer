@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, Enum, ForeignKey, Integer, Sequence, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,10 +9,28 @@ from app.core.database import Base
 from app.models.base import Timestamped, UUIDPk
 from app.models.enums import SwatchTypeEnum
 
+# Same pattern as customer_code_seq in app/models/customer.py — bound to Base.metadata so
+# create_all() (every seed script and the test suite) creates this sequence for free on a fresh
+# database; scripts/migrate_visit_code.py's own `CREATE SEQUENCE IF NOT EXISTS` covers adding it
+# to an already-running production database.
+visit_code_seq = Sequence("visit_code_seq", start=1, metadata=Base.metadata)
+
+
+def _next_visit_code(context) -> str:
+    """Column-level default, same reasoning as Customer._next_customer_code: every insert path
+    (API, seed/migration script, a test building a Visit() directly) gets a unique code for free."""
+    n = context.connection.execute(text("SELECT nextval('visit_code_seq')")).scalar()
+    return f"VISIT-{n:04d}"
+
 
 class Visit(Base, UUIDPk, Timestamped):
     __tablename__ = "visits"
 
+    # Human-facing unique identifier (e.g. "VISIT-0001"), distinct from the internal UUID `id` —
+    # same reasoning as Customer.customer_code: a stable, speakable reference for staff to cite in
+    # calls, emails and approval notes, and a natural sort/search key in the Register and exports.
+    # See scripts/migrate_visit_code.py for the backfill on existing rows.
+    visit_code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, index=True, default=_next_visit_code)
     customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)

@@ -57,7 +57,7 @@ export default function Presentation() {
       <div className="crumb">
         <a onClick={() => navigate('/entry')}>Customer Visit Entry</a> / <a onClick={() => navigate(`/customers/${c.id}`)}>{c.name}</a>
       </div>
-      <PageHead title={<>{c.name} {c.blacklist_cat ? blPill(c.blacklist_cat) : null}</>} sub={`${v.collections || ''} · follow-up emails from ${ownerName}`} />
+      <PageHead title={<>{c.name} {c.blacklist_cat ? blPill(c.blacklist_cat) : null}</>} sub={`${v.visit_code} · ${v.collections || ''} · follow-up emails from ${ownerName}`} />
 
       {usedException ? (
         <div className="alert warn">

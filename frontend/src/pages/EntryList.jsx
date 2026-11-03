@@ -38,6 +38,7 @@ export default function EntryList() {
   if (error) return <ErrBox message={error} />
 
   const columns = [
+    { key: 'visit_code', label: 'Visit ID', get: (v) => v.visit_code },
     { key: 'date', label: 'Date', type: 'date', get: (v) => v.date, render: (v) => <b>{fmtDate(v.date)}</b> },
     { key: 'company', label: 'Company', get: (v) => v._c?.name || '', render: (v) => (
       <>

@@ -149,7 +149,7 @@ export default function VisitContactDetail() {
       </div>
       <PageHead
         title={<>{c.name} {c.blacklist_cat ? blPill(c.blacklist_cat) : null}</>}
-        sub={`Follow-up for ${contact?.name || ''} · visit on ${fmtDate(v.date)} · emails from ${ownerName || ''}`}
+        sub={`${v.visit_code} · Follow-up for ${contact?.name || ''} · visit on ${fmtDate(v.date)} · emails from ${ownerName || ''}`}
         actions={
           <>
             {!vc.order_placed ? (
@@ -372,9 +372,11 @@ export default function VisitContactDetail() {
                   ) : null}{' '}
                   {m.status === 'sent' ? (
                     <>
-                      <button className="btn sm" onClick={() => setRespondMail(m)} type="button">
-                        Add reply
-                      </button>{' '}
+                      {!m.responses.length ? (
+                        <button className="btn sm" onClick={() => setRespondMail(m)} type="button">
+                          Add reply
+                        </button>
+                      ) : null}{' '}
                       {m.has_token ? (
                         <button className="btn sm" disabled={busyMail === m.id} onClick={() => act(m.id, 'resend-link')} type="button">
                           Send new link

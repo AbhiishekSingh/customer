@@ -180,6 +180,7 @@ class UndoOrderIn(BaseModel):
 
 class VisitOut(BaseModel):
     id: uuid.UUID
+    visit_code: str
     customer_id: uuid.UUID
     owner_id: uuid.UUID
     date: date

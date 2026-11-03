@@ -90,6 +90,7 @@ export default function Visits() {
   ]
 
   const columns = [
+    { key: 'visit_code', label: 'Visit ID', get: (r) => r.v.visit_code },
     { key: 'company', label: 'Company', get: (r) => r.c?.name || '', render: (r) => (
       <>
         <b>{r.c?.name}</b> {r.c?.blacklist_cat ? blPill(r.c.blacklist_cat) : null}
