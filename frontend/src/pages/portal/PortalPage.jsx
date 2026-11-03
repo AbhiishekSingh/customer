@@ -137,7 +137,11 @@ function AlreadyAnswered({ status, onEdit }) {
   )
 }
 
-function ResponseForm({ token, status, onDone }) {
+// Exported so Outbox's "Preview as customer" can render the exact same form the customer would
+// see (prototype parity — renderPortal(t, true) wraps this same respForm() read-only, rather than
+// a hand-rolled summary table), wrapped in a pointer-events:none container so nothing in it is
+// actually submittable from the staff side.
+export function ResponseForm({ token, status, onDone }) {
   const n = status.mail_number
   const prev = status.latest_response?.data || {}
   // Each mail/link is addressed to exactly one contact (status.contact) — that's the person this

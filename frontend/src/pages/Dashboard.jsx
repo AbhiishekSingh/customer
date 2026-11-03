@@ -30,6 +30,12 @@ export default function Dashboard() {
 
   const { data, error, loading, reload } = useApi(async () => {
     const [visits, customers] = await Promise.all([api.get('/visits'), api.get('/customers')])
+    let autoSend = true
+    try {
+      autoSend = (await api.get('/settings/auto-send-status')).auto_send
+    } catch {
+      autoSend = true
+    }
     let summary = null
     if (isMgr) {
       try {
@@ -65,9 +71,11 @@ export default function Dashboard() {
     let resp = 0
     let orderedCount = 0
     const todo = []
+    const today = new Date().toISOString().slice(0, 10)
     await Promise.all(
       visits.map(async (v) => {
         const mails = await api.get(`/visits/${v.id}/mails`)
+        const bouncedVcIds = new Set(mails.filter((m) => m.status === 'bounced').map((m) => m.visit_contact_id))
         mails.forEach((m) => {
           if (m.status === 'sent') {
             sent++
@@ -83,6 +91,16 @@ export default function Dashboard() {
           }
           if (m.unreviewed) {
             todo.push({ kind: 'unreviewed', text: 'New reply to review', customer, ...target, cls: 'info', ico: '✉' })
+          }
+          if (!autoSend && m.status === 'scheduled' && m.due_date <= today && !bouncedVcIds.has(m.visit_contact_id)) {
+            todo.push({
+              kind: 'manual_send_due',
+              text: `Email is due but auto-send is off — needs a manual "Send now"`,
+              customer,
+              ...target,
+              cls: 'warn',
+              ico: '⏸',
+            })
           }
         })
       })
@@ -196,6 +214,13 @@ export default function Dashboard() {
       return (
         <button className="btn sm" disabled={busy === t.mailId} onClick={() => sendNewLink(t)} type="button">
           Send new link
+        </button>
+      )
+    }
+    if (t.kind === 'manual_send_due') {
+      return (
+        <button className="btn sm primary" onClick={() => navigate(`/visit/${t.visitId}/${t.vcId}`)} type="button">
+          Send now
         </button>
       )
     }

@@ -288,6 +288,7 @@ export default function CustomerDetail() {
               { key: 'date', label: 'Date', type: 'date', get: (v) => v.date, render: (v) => <b>{fmtDate(v.date)}</b> },
               { key: 'collections', label: 'Purpose', get: (v) => v.collections || '' },
               { key: 'people', label: 'People', type: 'number', get: (v) => v.visit_contacts.length, render: (v) => `${v.visit_contacts.length} people` },
+              { key: 'pieces', label: 'Pieces taken', type: 'number', get: (v) => v.visit_contacts.reduce((a, vc) => a + vc.items.reduce((b, it) => b + it.qty, 0), 0), render: (v) => `${v.visit_contacts.reduce((a, vc) => a + vc.items.reduce((b, it) => b + it.qty, 0), 0)} pcs` },
             ]}
             exportName="customer_visits"
             searchHint="Search by Visit ID or purpose…"

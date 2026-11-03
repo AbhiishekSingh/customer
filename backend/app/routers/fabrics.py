@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import require_any, require_manager_up
+from app.core.deps import require_any
 from app.core.errors import conflict, not_found, validation_error
 from app.models.fabric import Fabric
 from app.models.user import User
@@ -35,7 +35,7 @@ def list_fabrics(active_only: bool = False, db: Session = Depends(get_db), _: Us
 
 
 @router.post("", response_model=FabricOut, status_code=201)
-def create_fabric(payload: FabricCreate, db: Session = Depends(get_db), user: User = Depends(require_manager_up)) -> Fabric:
+def create_fabric(payload: FabricCreate, db: Session = Depends(get_db), user: User = Depends(require_any)) -> Fabric:
     if db.scalar(select(Fabric).where(Fabric.code == payload.code)):
         raise conflict(f"Item code '{payload.code}' already exists")
     fabric = Fabric(**payload.model_dump())
@@ -46,7 +46,7 @@ def create_fabric(payload: FabricCreate, db: Session = Depends(get_db), user: Us
 
 
 @router.patch("/{fabric_id}", response_model=FabricOut)
-def update_fabric(fabric_id: uuid.UUID, payload: FabricUpdate, db: Session = Depends(get_db), user: User = Depends(require_manager_up)) -> Fabric:
+def update_fabric(fabric_id: uuid.UUID, payload: FabricUpdate, db: Session = Depends(get_db), user: User = Depends(require_any)) -> Fabric:
     fabric = db.get(Fabric, fabric_id)
     if not fabric:
         raise not_found("Item not found")
@@ -59,7 +59,7 @@ def update_fabric(fabric_id: uuid.UUID, payload: FabricUpdate, db: Session = Dep
 
 
 @router.post("/import", response_model=FabricImportResult)
-def import_fabrics(rows: list[FabricImportRow], db: Session = Depends(get_db), user: User = Depends(require_manager_up)) -> FabricImportResult:
+def import_fabrics(rows: list[FabricImportRow], db: Session = Depends(get_db), user: User = Depends(require_any)) -> FabricImportResult:
     """All-or-nothing: every row must be valid before anything is committed (§3 of the validation
     doc — avoids the ambiguity of a partial-success import the prototype's demo CSV importer had)."""
     errors: list[str] = []

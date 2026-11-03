@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import { useToast } from '../context/ToastContext'
-import { useAuth } from '../context/AuthContext'
 import DataTable from '../components/DataTable'
 import CsvImportModal from '../components/CsvImportModal'
 import { PageHead, Loading, ErrBox, Modal, Field, Pill } from '../components/ui'
@@ -26,10 +25,7 @@ function thumb(f) {
   )
 }
 
-const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
-
 export default function Fabrics() {
-  const { user } = useAuth()
   const toast = useToast()
   const [editing, setEditing] = useState(null) // fabric object, or {} for new
   const { data: fabrics, error, loading, reload } = useApi(() => api.get('/fabrics'), [])
@@ -67,16 +63,14 @@ export default function Fabrics() {
         title="Items (fabrics)"
         sub="Swatch master. Pick from this list when logging a visit — inactive items cannot be distributed."
         actions={
-          isMgr(user?.role) ? (
-            <>
-              <button className="btn" onClick={() => setImporting(true)} type="button">
-                Import CSV
-              </button>{' '}
-              <button className="btn primary" onClick={() => setEditing({})} type="button">
-                ＋ Add item
-              </button>
-            </>
-          ) : null
+          <>
+            <button className="btn" onClick={() => setImporting(true)} type="button">
+              Import CSV
+            </button>{' '}
+            <button className="btn primary" onClick={() => setEditing({})} type="button">
+              ＋ Add item
+            </button>
+          </>
         }
       />
       <label className="chip" style={{ cursor: 'pointer', marginBottom: 10, display: 'inline-flex' }}>
@@ -91,11 +85,11 @@ export default function Fabrics() {
         searchHint="Search by code, name, category…"
         emptyText="No items yet."
         rowClass={(f) => (f.status !== 'active' ? 'row-dim' : '')}
-        actions={isMgr(user?.role) ? (f) => (
+        actions={(f) => (
           <button className="btn sm" onClick={() => setEditing(f)} type="button">
             Edit
           </button>
-        ) : undefined}
+        )}
       />
       {editing ? <FabricModal fabric={editing} categories={categories || []} colors={colors || []} onClose={() => setEditing(null)} onDone={reload} /> : null}
       {importing ? (

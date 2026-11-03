@@ -35,6 +35,7 @@ app.include_router(portal.router)
 app.include_router(blacklist.router)
 app.include_router(reports.router)
 app.include_router(settings.router)
+app.include_router(settings.public_router)
 app.include_router(notifications.router)
 app.include_router(uploads.router)
 

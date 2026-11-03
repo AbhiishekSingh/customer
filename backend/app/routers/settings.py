@@ -2,13 +2,25 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import require_admin
+from app.core.deps import require_admin, require_any
 from app.models.user import User
 from app.schemas.settings import SettingsUpdate
 from app.services.audit import audit
 from app.services.settings_service import get_settings, update_settings
 
 router = APIRouter(prefix="/settings", tags=["settings"], dependencies=[Depends(require_admin)])
+
+# Separate router, NOT gated by require_admin: any authenticated staff member needs to know
+# whether auto_send is on, so the Dashboard can flag a mail that's due but stuck waiting for a
+# manual "Send now" (see Dashboard.jsx's todo list). This intentionally exposes only the one
+# boolean flag — none of the other settings (emails, intervals, holidays) are admin-only for a
+# reason and stay behind read_settings above.
+public_router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+@public_router.get("/auto-send-status")
+def read_auto_send_status(db: Session = Depends(get_db), _: User = Depends(require_any)) -> dict:
+    return {"auto_send": get_settings(db)["auto_send"]}
 
 
 @router.get("")

@@ -68,15 +68,57 @@ export function fmtDateShort(d) {
   }
 }
 
+// Same field→sentence mapping as the prototype's respSummary() (assets/views.js) — the backend
+// stores a customer's portal reply verbatim as raw_data with these exact camelCase keys, so this
+// ports 1:1 rather than generically humanizing "key: value" pairs the way the old version did.
+const RESP_SENTENCE_MAP = {
+  received: { all: 'Received all swatches', partial: 'Some swatches missing', none: 'Not received yet' },
+  testStatus: { not_started: 'Testing not started', in_progress: 'Testing in progress', approved: 'Testing approved', issues: 'Testing found issues' },
+  proto: { yes: 'Proto sample made', in_progress: 'Proto in progress', no: 'No proto sample' },
+  orderPlaced: { yes: 'Order placed', planning: 'Planning to order', no: 'No order' },
+  execStatus: { in_production: 'In production', dispatched: 'Dispatched', in_store: 'In stores now' },
+  interested: { yes: 'Wants to see the new collection', no: 'Not interested now' },
+}
+
+// dd/mm/yyyy — same project-standard full date format as ui.jsx's fmtDate, kept local here so
+// this module (used by plain data helpers) doesn't need to import the UI component file.
+function fmtDateFull(d) {
+  if (!d) return '—'
+  try {
+    const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})(?:T|$)/)
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`
+    const dt = new Date(d)
+    if (Number.isNaN(dt.getTime())) return d
+    return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`
+  } catch {
+    return d
+  }
+}
+
 export function respSummary(responses) {
-  // responses: list of MailResponseOut; show the latest one's raw_data as readable key:value pairs
+  // responses: list of MailResponseOut; render the latest one's raw_data as the prototype's
+  // hand-written human sentences (e.g. "Testing approved · Order placed"), not raw key:value dumps.
   if (!responses || !responses.length) return null
   const r = responses[responses.length - 1]
   const d = r.raw_data || {}
-  const parts = Object.entries(d)
-    .filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length))
-    .map(([k, v]) => `${humanKey(k)}: ${Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-  return { text: parts.join(' · '), by: r.by_name, designation: r.by_designation, at: r.submitted_at, source: r.source, count: responses.length }
+  const L = []
+  for (const k of Object.keys(RESP_SENTENCE_MAP)) {
+    if (d[k] && RESP_SENTENCE_MAP[k][d[k]]) L.push(RESP_SENTENCE_MAP[k][d[k]])
+  }
+  if (d.missing && d.missing.length) L.push('Missing: ' + d.missing.join(', '))
+  if (d.quality) {
+    const issues = Object.keys(d.quality).filter((k) => d.quality[k] === 'issue')
+    const ok = Object.keys(d.quality).filter((k) => d.quality[k] === 'ok')
+    if (ok.length) L.push('Quality OK: ' + ok.join(', '))
+    if (issues.length) L.push('Quality issue: ' + issues.join(', '))
+  }
+  if (d.orderFabrics && d.orderFabrics.length && d.orderPlaced === 'yes') L.push('Ordered: ' + d.orderFabrics.join(', '))
+  if (d.storeDate) L.push('In store: ' + fmtDateFull(d.storeDate))
+  if (d.whereToBuy) L.push('Where to buy: ' + d.whereToBuy)
+  if (d.preferredDate) L.push('Preferred date: ' + fmtDateFull(d.preferredDate))
+  if (d.notProceeding) L.push('Not going ahead')
+  if (d.feedback) L.push(`"${d.feedback}"`)
+  return { text: L.join(' · '), by: r.by_name, designation: r.by_designation, at: r.submitted_at, source: r.source, count: responses.length }
 }
 
 export function humanKey(k) {

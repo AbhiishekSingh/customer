@@ -4,9 +4,10 @@ import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import { useToast } from '../context/ToastContext'
 import { Loading, ErrBox, PageHead, Panel, Empty, blPill, fmtDate } from '../components/ui'
-import { dotsFor, visitStageText, visitStageCls, latestItemFeedback } from '../lib/domain'
+import { dotsFor, visitStageText, visitStageCls, latestItemFeedback, mailName } from '../lib/domain'
 import { displaySrc } from '../components/ImageUpload'
 import DataTable from '../components/DataTable'
+import { SendNowModal, PostponeModal, FixEmailModal, ManualResponseModal } from './VisitContactDetail'
 
 function pieces(items, type) {
   return items.filter((i) => (type ? i.swatch_type === type : true)).reduce((a, i) => a + i.qty, 0)
@@ -18,8 +19,13 @@ export default function Presentation() {
   const toast = useToast()
   const [tab, setTab] = useState('overview')
   const [itemsPopupVc, setItemsPopupVc] = useState(null)
+  const [busyMail, setBusyMail] = useState(null)
+  const [sendNowMail, setSendNowMail] = useState(null)
+  const [postponeMail, setPostponeMail] = useState(null)
+  const [fixEmailMail, setFixEmailMail] = useState(null)
+  const [respondFor, setRespondFor] = useState(null) // { mail, mails, vc, contact } or null
 
-  const { data, error, loading } = useApi(async () => {
+  const { data, error, loading, reload } = useApi(async () => {
     const [visit, mails, fabrics, directory] = await Promise.all([
       api.get(`/visits/${id}`),
       api.get(`/visits/${id}/mails`),
@@ -52,6 +58,57 @@ export default function Presentation() {
   const presenterNames = (v.presented_by || []).map((uid) => directory.find((u) => u.id === uid)?.name).filter(Boolean)
   const usedException = exceptions.find((ex) => ex.used_on_visit_id === v.id)
   const feedbackByItem = latestItemFeedback(Object.values(mailsByVc).flat(), allItems)
+
+  async function doSendNow(mailId, subject, body, extraEmail) {
+    setBusyMail(mailId)
+    try {
+      await api.post(`/mails/${mailId}/send-now`, { subject, body, extra_email: extraEmail || null })
+      toast('Email sent')
+      setSendNowMail(null)
+      reload()
+    } catch (e) {
+      toast(e.message)
+    } finally {
+      setBusyMail(null)
+    }
+  }
+
+  async function doPostpone(mailId, newDueDate, reason) {
+    try {
+      await api.post(`/mails/${mailId}/postpone?new_due_date=${newDueDate}&reason=${encodeURIComponent(reason)}`)
+      toast('Mail postponed')
+      setPostponeMail(null)
+      reload()
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+
+  async function doSkip(mailId) {
+    const reason = window.prompt("Reason this mail won't be sent:")
+    if (!reason) return
+    setBusyMail(mailId)
+    try {
+      await api.post(`/mails/${mailId}/skip?reason=${encodeURIComponent(reason)}`)
+      toast('Mail marked — will not be sent')
+      reload()
+    } catch (e) {
+      toast(e.message)
+    } finally {
+      setBusyMail(null)
+    }
+  }
+
+  async function fixBounce(mailId, newEmail) {
+    try {
+      await api.post(`/mails/${mailId}/fix-bounce?new_email=${encodeURIComponent(newEmail)}`)
+      toast('Email fixed — resuming follow-up')
+      setFixEmailMail(null)
+      reload()
+    } catch (e) {
+      toast(e.message)
+    }
+  }
 
   return (
     <div>
@@ -229,6 +286,7 @@ export default function Presentation() {
                 const dots = dotsFor(mails)
                 const stage = visitStageText(vc, mails)
                 const next = mails.find((m) => m.status === 'scheduled')
+                const bounced = mails.find((m) => m.status === 'bounced')
                 return (
                   <tr key={vc.id}>
                     <td className="click" onClick={() => navigate(`/visit/${v.id}/${vc.id}`)}>
@@ -264,7 +322,29 @@ export default function Presentation() {
                     <td>
                       <span className={'pill ' + visitStageCls(stage)}>{stage}</span>
                     </td>
-                    <td className="act">
+                    <td className="act" onClick={(e) => e.stopPropagation()}>
+                      {bounced ? (
+                        <button className="btn sm primary" onClick={() => setFixEmailMail(bounced)} type="button">
+                          Fix email
+                        </button>
+                      ) : next ? (
+                        <>
+                          <button className="btn sm" disabled={busyMail === next.id} onClick={() => setSendNowMail(next)} type="button">
+                            Send today
+                          </button>{' '}
+                          <button className="btn sm" disabled={busyMail === next.id} onClick={() => setPostponeMail(next)} type="button">
+                            Change date
+                          </button>{' '}
+                          <button className="btn sm danger" disabled={busyMail === next.id} onClick={() => doSkip(next.id)} type="button">
+                            Don't send
+                          </button>{' '}
+                        </>
+                      ) : null}
+                      {mails.length ? (
+                        <button className="btn sm" onClick={() => setRespondFor({ mail: mails[mails.length - 1], mails, vc, contact })} type="button">
+                          Add a reply
+                        </button>
+                      ) : null}{' '}
                       <a onClick={() => navigate(`/visit/${v.id}/${vc.id}`)}>Open</a>
                     </td>
                   </tr>
@@ -280,6 +360,26 @@ export default function Presentation() {
           </table>
         </Panel>
       )}
+
+      {sendNowMail ? (
+        <SendNowModal mail={sendNowMail} busy={busyMail === sendNowMail.id} onClose={() => setSendNowMail(null)} onSend={doSendNow} />
+      ) : null}
+      {postponeMail ? <PostponeModal mail={postponeMail} onClose={() => setPostponeMail(null)} onSubmit={doPostpone} /> : null}
+      {fixEmailMail ? (
+        <FixEmailModal mail={fixEmailMail} contact={contactById[v.visit_contacts.find((vc) => (mailsByVc[vc.id] || []).some((m) => m.id === fixEmailMail.id))?.contact_id]} onClose={() => setFixEmailMail(null)} onSubmit={fixBounce} />
+      ) : null}
+      {respondFor ? (
+        <ManualResponseModal
+          mail={respondFor.mail}
+          mails={respondFor.mails}
+          vc={respondFor.vc}
+          fabricById={fabricById}
+          customer={c}
+          contact={respondFor.contact}
+          onClose={() => setRespondFor(null)}
+          onDone={reload}
+        />
+      ) : null}
     </div>
   )
 }

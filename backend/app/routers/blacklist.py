@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import require_admin, require_manager_up, require_top
+from app.core.deps import require_admin, require_any, require_manager_up, require_top
 from app.core.errors import not_found
 from app.models.blacklist import Approval, BlacklistEvent, Exception_
 from app.models.customer import Customer
@@ -44,7 +44,7 @@ def _get_customer(db: Session, customer_id: uuid.UUID) -> Customer:
 
 
 @router.get("/blacklist/pending")
-def list_pending(db: Session = Depends(get_db), _: User = Depends(require_manager_up)) -> dict:
+def list_pending(db: Session = Depends(get_db), _: User = Depends(require_any)) -> dict:
     """Everyone manager-and-up can see what's awaiting Top Management; only 'top' can decide."""
     events = db.scalars(select(BlacklistEvent).where(BlacklistEvent.status == "pending")).all()
     exceptions = db.scalars(select(Exception_).where(Exception_.status == "pending")).all()
@@ -55,13 +55,13 @@ def list_pending(db: Session = Depends(get_db), _: User = Depends(require_manage
 
 
 @router.get("/customers/{customer_id}/blacklist-events", response_model=list[BlacklistEventOut])
-def list_customer_events(customer_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(require_manager_up)) -> list[BlacklistEvent]:
+def list_customer_events(customer_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(require_any)) -> list[BlacklistEvent]:
     _get_customer(db, customer_id)
     return db.scalars(select(BlacklistEvent).where(BlacklistEvent.customer_id == customer_id).order_by(BlacklistEvent.created_at.desc())).all()
 
 
 @router.get("/blacklist-events/{event_id}/approvals", response_model=list[ApprovalOut])
-def list_event_approvals(event_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(require_manager_up)) -> list[Approval]:
+def list_event_approvals(event_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(require_any)) -> list[Approval]:
     from app.models.enums import ApprovalParentEnum
     return db.scalars(select(Approval).where(Approval.parent_type == ApprovalParentEnum.blacklist_event, Approval.parent_id == event_id)).all()
 
@@ -115,7 +115,7 @@ def decide_exc(exception_id: uuid.UUID, payload: DecideIn, db: Session = Depends
 
 
 @router.get("/customers/{customer_id}/blacklist-evidence")
-def get_blacklist_evidence(customer_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(require_manager_up)) -> dict:
+def get_blacklist_evidence(customer_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(require_any)) -> dict:
     """The 'Why?' modal (prototype's evidenceHtml()): rule text for the relevant category, the
     event/decision trail (with approvals), and — for auto-raised evidence, where we know exactly
     which visit-contacts triggered it (BlacklistEvent.sig) — the actual mail-by-mail send/reply
@@ -203,7 +203,7 @@ def get_blacklist_evidence(customer_id: uuid.UUID, db: Session = Depends(get_db)
 
 
 @router.get("/blacklist/b-candidates")
-def list_b_candidates(db: Session = Depends(get_db), _: User = Depends(require_manager_up)) -> list[dict]:
+def list_b_candidates(db: Session = Depends(get_db), _: User = Depends(require_any)) -> list[dict]:
     """Companies that replied to their follow-ups but never gave feedback or a closure, and are
     NOT yet flagged 'only in touch with marketing' — the prototype's dashboard/Blacklist panel
     that asks the account owner to confirm before Blacklist B can even be suggested (confirming

@@ -26,7 +26,7 @@ const NAV = [
       ['/register', 'Swatch Register', 'layers'],
     ],
   },
-  { id: 'gov', label: 'Governance', items: [['/blacklist', 'Blacklist', 'flag', 'mgr'], ['/outbox', 'Sent Emails', 'send']] },
+  { id: 'gov', label: 'Governance', items: [['/blacklist', 'Blacklist', 'flag'], ['/outbox', 'Sent Emails', 'send']] },
   { id: 'insights', label: 'Insights', role: 'mgr', items: [['/reports', 'Reports', 'bar-chart'], ['/activity', 'Activity log', 'activity']] },
   { id: 'admin', label: 'Admin', role: 'admin', items: [['/settings', 'Settings', 'settings']] },
 ]

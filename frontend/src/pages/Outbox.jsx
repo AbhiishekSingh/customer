@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import DataTable from '../components/DataTable'
 import { PageHead, Loading, ErrBox, Modal, fmtDate, fmtDateTime } from '../components/ui'
+import { ResponseForm } from './portal/PortalPage'
 
 export default function Outbox() {
   const [tab, setTab] = useState('all')
@@ -120,6 +121,15 @@ export default function Outbox() {
   )
 }
 
+// Mirrors the prototype's renderPortal(t, true) — "Link status: …" line computed the same way
+// (not opened yet / opened + active-until / expired), since the backend only hands back `opened`
+// and `link_expiry` (never raw first_opened_at, which has no reason to leave the portal router).
+function linkStatusText(s) {
+  if (!s.opened) return 'Not opened yet — never expires until the customer opens it'
+  if (s.link_expiry && new Date(s.link_expiry) <= new Date()) return `Expired ${fmtDateTime(s.link_expiry)}`
+  return `Opened · active until ${fmtDateTime(s.link_expiry)}`
+}
+
 function PortalPreview({ previewing }) {
   if (previewing.loading) return <Loading />
   if (previewing.error) return <ErrBox message={previewing.error} />
@@ -127,43 +137,30 @@ function PortalPreview({ previewing }) {
   return (
     <div>
       <div className="alert info" style={{ marginBottom: 12 }}>
-        Staff preview only — looking at this does not start or affect the customer's own link timer.
+        Staff preview — exactly what the customer sees on their own link. Read-only: looking at this never starts
+        or affects the customer's own link timer.
+      </div>
+      <div className="alert" style={{ marginBottom: 12 }}>
+        Link status: <b>{linkStatusText(s)}</b>
       </div>
       <h3 style={{ marginTop: 0 }}>{s.customer_name}</h3>
       <p className="hint" style={{ marginTop: 0 }}>
         {s.mail_purpose} — visit on {fmtDate(s.visit_date)} with {s.owner_name}
       </p>
-      {s.items?.length ? (
-        <table>
-          <tr>
-            <th>Fabric</th>
-            <th>Qty</th>
-            <th>Already answered?</th>
-            <th>Sentiment</th>
-            <th>Feedback</th>
-          </tr>
-          {s.items.map((it) => (
-            <tr key={it.visit_item_id}>
-              <td><b>{it.fabric_code}</b> — {it.fabric_name}</td>
-              <td>{it.qty} {it.swatch_type}</td>
-              <td>{it.already_has_feedback ? '✓ Yes' : '—'}</td>
-              <td>{it.sentiment || '—'}</td>
-              <td>{it.feedback_text || '—'}</td>
-            </tr>
-          ))}
-        </table>
-      ) : (
-        <p className="hint">No items on this follow-up.</p>
-      )}
       {s.latest_response ? (
-        <p className="hint" style={{ marginTop: 12 }}>
+        <p className="hint">
           Last response submitted by {s.latest_response.by_name}
           {s.latest_response.by_designation ? `, ${s.latest_response.by_designation}` : ''} on{' '}
           {fmtDate(s.latest_response.submitted_at)}
+          {s.latest_response.version > 1 ? ` (version ${s.latest_response.version})` : ''}
         </p>
       ) : (
-        <p className="hint" style={{ marginTop: 12 }}>No response submitted yet.</p>
+        <p className="hint">No response submitted yet.</p>
       )}
+      <h4 style={{ marginTop: 16 }}>What the customer sees</h4>
+      <div style={{ pointerEvents: 'none', opacity: 0.75 }}>
+        <ResponseForm token="" status={s} onDone={() => {}} />
+      </div>
     </div>
   )
 }

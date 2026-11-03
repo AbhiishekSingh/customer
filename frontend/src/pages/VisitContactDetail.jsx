@@ -501,7 +501,7 @@ function ResponseHistoryModal({ mail, onClose }) {
   )
 }
 
-function PostponeModal({ mail, onClose, onSubmit }) {
+export function PostponeModal({ mail, onClose, onSubmit }) {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
   const [newDueDate, setNewDueDate] = useState(mail.due_date > tomorrow ? mail.due_date : tomorrow)
   const [reason, setReason] = useState('')
@@ -550,7 +550,7 @@ function MailContentModal({ mail, onClose }) {
   )
 }
 
-function SendNowModal({ mail, busy, onClose, onSend }) {
+export function SendNowModal({ mail, busy, onClose, onSend }) {
   const { data, error, loading } = useApi(() => api.get(`/mails/${mail.id}/draft`), [mail.id])
   const [subject, setSubject] = useState(null)
   const [body, setBody] = useState(null)
@@ -620,7 +620,7 @@ function SendNowModal({ mail, busy, onClose, onSend }) {
   )
 }
 
-function FixEmailModal({ mail, contact, onClose, onSubmit }) {
+export function FixEmailModal({ mail, contact, onClose, onSubmit }) {
   const [email, setEmail] = useState(contact?.email || '')
   return (
     <Modal title="Fix bounced email" onClose={onClose} footer={
@@ -701,7 +701,7 @@ function RecordOrderModal({ vc, fabricById, onClose, onDone }) {
   )
 }
 
-function ManualResponseModal({ mail, mails, vc, fabricById, customer, contact, onClose, onDone }) {
+export function ManualResponseModal({ mail, mails, vc, fabricById, customer, contact, onClose, onDone }) {
   const toast = useToast()
   const [mailId, setMailId] = useState(mail.id)
   const activeMail = (mails || [mail]).find((m) => m.id === mailId) || mail
