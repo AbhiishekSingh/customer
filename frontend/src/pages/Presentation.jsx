@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext'
 import { Loading, ErrBox, PageHead, Panel, Empty, blPill, fmtDate } from '../components/ui'
 import { dotsFor, visitStageText, visitStageCls, latestItemFeedback } from '../lib/domain'
 import { displaySrc } from '../components/ImageUpload'
+import DataTable from '../components/DataTable'
 
 function pieces(items, type) {
   return items.filter((i) => (type ? i.swatch_type === type : true)).reduce((a, i) => a + i.qty, 0)
@@ -149,59 +150,57 @@ export default function Presentation() {
 
       {tab === 'items' && (
         <Panel title="Items given at this visit" count={allItems.length}>
-          {allItems.length ? (
-            <table>
-              <tr>
-                <th>Person</th>
-                <th>Sort no.</th>
-                <th>Item</th>
-                <th>Colour</th>
-                <th>Type</th>
-                <th>Qty</th>
-                <th>Sentiment</th>
-                <th>Feedback</th>
-                <th>Attachment</th>
-              </tr>
-              {v.visit_contacts.map((vc) =>
-                vc.items.map((it) => {
-                  const fabric = fabricById[it.fabric_id]
-                  const contact = contactById[vc.contact_id]
-                  const fb = feedbackByItem[it.id]
+          <DataTable
+            id="presentation-items"
+            rows={v.visit_contacts.flatMap((vc) => vc.items.map((it) => ({ vc, it })))}
+            columns={[
+              { key: 'person', label: 'Person', get: (r) => contactById[r.vc.contact_id]?.name || '' },
+              { key: 'code', label: 'Sort no.', get: (r) => fabricById[r.it.fabric_id]?.code || '', render: (r) => <b>{fabricById[r.it.fabric_id]?.code}</b> },
+              {
+                key: 'item', label: 'Item', get: (r) => fabricById[r.it.fabric_id]?.name || '',
+                render: (r) => (
+                  <>
+                    {fabricById[r.it.fabric_id]?.name}
+                    <div className="sub">{fabricById[r.it.fabric_id]?.quality_category}</div>
+                  </>
+                ),
+              },
+              { key: 'colour', label: 'Colour', get: (r) => fabricById[r.it.fabric_id]?.colour_variants || '' },
+              { key: 'type', label: 'Type', get: (r) => r.it.swatch_type },
+              { key: 'qty', label: 'Qty', type: 'number', get: (r) => r.it.qty },
+              {
+                key: 'sentiment', label: 'Sentiment', get: (r) => feedbackByItem[r.it.id]?.sentiment || '',
+                render: (r) => (feedbackByItem[r.it.id]?.sentiment ? <span className="pill p-info">{feedbackByItem[r.it.id].sentiment}</span> : '—'),
+              },
+              {
+                key: 'feedback', label: 'Feedback', sortable: false, get: (r) => feedbackByItem[r.it.id]?.text || '',
+                render: (r) => {
+                  const fb = feedbackByItem[r.it.id]
                   return (
-                    <tr key={it.id}>
-                      <td>{contact?.name}</td>
-                      <td>
-                        <b>{fabric?.code}</b>
-                      </td>
-                      <td>
-                        {fabric?.name}
-                        <div className="sub">{fabric?.quality_category}</div>
-                      </td>
-                      <td>{fabric?.colour_variants || '—'}</td>
-                      <td>{it.swatch_type}</td>
-                      <td>{it.qty}</td>
-                      <td>{fb?.sentiment ? <span className="pill p-info">{fb.sentiment}</span> : '—'}</td>
-                      <td>
-                        {fb?.text || '—'}
-                        {fb?.source === 'visit_entry' ? <div className="sub">logged at visit entry{fb.loggedBy ? ` by ${fb.loggedBy}` : ''}</div> : null}
-                      </td>
-                      <td>
-                        {fb?.attachment_url ? (
-                          <a href={displaySrc(fb.attachment_url)} target="_blank" rel="noreferrer">
-                            View
-                          </a>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
+                    <>
+                      {fb?.text || '—'}
+                      {fb?.source === 'visit_entry' ? <div className="sub">logged at visit entry{fb.loggedBy ? ` by ${fb.loggedBy}` : ''}</div> : null}
+                    </>
                   )
-                })
-              )}
-            </table>
-          ) : (
-            <Empty text="No items on this visit." />
-          )}
+                },
+              },
+              {
+                key: 'attachment', label: 'Attachment', sortable: false, get: (r) => (feedbackByItem[r.it.id]?.attachment_url ? 'Yes' : ''),
+                render: (r) =>
+                  feedbackByItem[r.it.id]?.attachment_url ? (
+                    <a href={displaySrc(feedbackByItem[r.it.id].attachment_url)} target="_blank" rel="noreferrer">
+                      View
+                    </a>
+                  ) : (
+                    '—'
+                  ),
+              },
+            ]}
+            exportName="visit_items"
+            searchHint="Search by person, sort no., item…"
+            emptyText="No items on this visit."
+            rowKey={(r) => r.it.id}
+          />
         </Panel>
       )}
 

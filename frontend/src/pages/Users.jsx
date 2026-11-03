@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import { useToast } from '../context/ToastContext'
 import { PageHead, Panel, Pill, Modal, Field, ErrBox, Loading } from '../components/ui'
+import DataTable from '../components/DataTable'
 
 const ROLE_LABEL = { design: 'Design Team', manager: 'Manager', admin: 'Admin', top: 'Top Management' }
 
@@ -55,49 +56,41 @@ export default function Users() {
         }
       />
       <Panel title="Users" count={users.length}>
-        <table>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Title</th>
-            <th>Customers owned</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-          {users.map((u) => (
-            <tr key={u.id} className={!u.is_active ? 'row-dim' : ''}>
-              <td>
-                <b>{u.name}</b>
-              </td>
-              <td>{u.email}</td>
-              <td>{ROLE_LABEL[u.role] || u.role}</td>
-              <td>{u.title || '—'}</td>
-              <td>{ownedCounts[u.id] || 0}</td>
-              <td>
-                {!u.password_set ? (
-                  <Pill text="Pending" cls="p-warn" />
-                ) : (
-                  <Pill text={u.is_active ? 'Active' : 'Inactive'} cls={u.is_active ? 'p-ok' : 'p-bad'} />
-                )}
-              </td>
-              <td className="act">
-                <button className="btn sm" onClick={() => setEditing(u)} type="button">
-                  Edit
-                </button>{' '}
-                {u.is_active ? (
-                  <button className="btn sm danger" onClick={() => deactivate(u)} type="button">
-                    Deactivate
-                  </button>
-                ) : (
-                  <button className="btn sm" onClick={() => activate(u)} type="button">
-                    Activate
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </table>
+        <DataTable
+          id="users"
+          rows={users}
+          columns={[
+            { key: 'name', label: 'Name', get: (u) => u.name, render: (u) => <b>{u.name}</b> },
+            { key: 'email', label: 'Email', get: (u) => u.email },
+            { key: 'role', label: 'Role', type: 'text', get: (u) => ROLE_LABEL[u.role] || u.role },
+            { key: 'title', label: 'Title', get: (u) => u.title || '' },
+            { key: 'owned', label: 'Customers owned', type: 'number', get: (u) => ownedCounts[u.id] || 0 },
+            {
+              key: 'status', label: 'Status', get: (u) => (!u.password_set ? 'Pending' : u.is_active ? 'Active' : 'Inactive'),
+              render: (u) => (!u.password_set ? <Pill text="Pending" cls="p-warn" /> : <Pill text={u.is_active ? 'Active' : 'Inactive'} cls={u.is_active ? 'p-ok' : 'p-bad'} />),
+            },
+          ]}
+          exportName="users"
+          searchHint="Search by name, email or role…"
+          emptyText="No users yet."
+          rowClass={(u) => (!u.is_active ? 'row-dim' : '')}
+          actions={(u) => (
+            <>
+              <button className="btn sm" onClick={() => setEditing(u)} type="button">
+                Edit
+              </button>{' '}
+              {u.is_active ? (
+                <button className="btn sm danger" onClick={() => deactivate(u)} type="button">
+                  Deactivate
+                </button>
+              ) : (
+                <button className="btn sm" onClick={() => activate(u)} type="button">
+                  Activate
+                </button>
+              )}
+            </>
+          )}
+        />
       </Panel>
 
       <Panel title="Who can do what">

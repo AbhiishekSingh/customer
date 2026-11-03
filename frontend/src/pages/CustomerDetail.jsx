@@ -4,10 +4,11 @@ import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { Loading, ErrBox, PageHead, Panel, Empty, Field, blPill, tagPill, fmtDate, onlyDigits, cleanPhone } from '../components/ui'
+import { Loading, ErrBox, PageHead, Panel, Field, blPill, tagPill, fmtDate, onlyDigits, cleanPhone } from '../components/ui'
 import { BL_TEXT, swatchMeters, fmtMeters } from '../lib/domain'
 import EvidenceModal from '../components/EvidenceModal'
 import Icon from '../components/Icon'
+import DataTable from '../components/DataTable'
 
 const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
 const isAdmin = (role) => role === 'admin' || role === 'top'
@@ -62,26 +63,26 @@ export default function CustomerDetail() {
         const contact = customer.contacts.find((x) => x.id === vc.contact_id)
         const teamName = customer.teams.find((t) => t.id === contact?.team_id)?.name || '—'
         if (!teamMap.has(teamName)) {
-          teamMap.set(teamName, { team: teamName, people: new Set(), hangers: 0, swatches: 0, m: 0, sent: 0, resp: 0 })
+          teamMap.set(teamName, { team: teamName, people: new Map(), hangers: 0, swatches: 0, m: 0, followups: 0, replied: 0, lastTaken: null })
         }
         const entry = teamMap.get(teamName)
-        entry.people.add(vc.contact_id)
+        entry.people.set(vc.contact_id, contact?.name)
         for (const it of vc.items) {
           if (it.swatch_type === 'Hanger') entry.hangers += it.qty
           if (it.swatch_type === 'Swatch') entry.swatches += it.qty
           entry.m += swatchMeters(it.qty, it.swatch_type)
         }
+        if (!entry.lastTaken || v.date > entry.lastTaken) entry.lastTaken = v.date
+        // "Replied" below is per prototype's custSwatchHistory team rollup: how many of this
+        // team's follow-ups (visit-contacts) got at least one reply, not a %-of-mails-sent rate.
+        entry.followups++
         const vcMails = vMails.filter((m) => m.visit_contact_id === vc.id)
-        for (const m of vcMails) {
-          if (m.status === 'sent' || m.status === 'bounced') entry.sent++
-          if (m.responses && m.responses.length) entry.resp++
-        }
+        if (vcMails.some((m) => m.responses && m.responses.length)) entry.replied++
       }
     }
     const teamRollup = [...teamMap.values()].map((e) => ({
       ...e,
-      peopleCount: e.people.size,
-      replyRate: e.sent ? Math.round((e.resp / e.sent) * 100) : null,
+      peopleNames: [...e.people.values()].filter(Boolean).join(', '),
     }))
 
     return { customer, engagement, custVisits, directory, events, exceptions, swatchHistory, teamRollup, categories, countries }
@@ -279,32 +280,20 @@ export default function CustomerDetail() {
       {tab === 'contacts' && <ContactsTab customer={c} countries={countries} reload={reload} canEdit={isMgr(user?.role)} />}
       {tab === 'visits' && (
         <Panel title="Visits" count={custVisits.length}>
-          {custVisits.length ? (
-            <table>
-              <tr>
-                <th>Visit ID</th>
-                <th>Date</th>
-                <th>Purpose</th>
-                <th>People</th>
-                <th></th>
-              </tr>
-              {custVisits.map((v) => (
-                <tr className="click" key={v.id} onClick={() => navigate(`/presentation/${v.id}`)}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{v.visit_code}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <b>{fmtDate(v.date)}</b>
-                  </td>
-                  <td>{v.collections}</td>
-                  <td>{v.visit_contacts.length} people</td>
-                  <td className="act">
-                    <a>Open visit</a>
-                  </td>
-                </tr>
-              ))}
-            </table>
-          ) : (
-            <Empty text="No visits yet." />
-          )}
+          <DataTable
+            id="customer-visits"
+            rows={custVisits}
+            columns={[
+              { key: 'visit_code', label: 'Visit ID', get: (v) => v.visit_code },
+              { key: 'date', label: 'Date', type: 'date', get: (v) => v.date, render: (v) => <b>{fmtDate(v.date)}</b> },
+              { key: 'collections', label: 'Purpose', get: (v) => v.collections || '' },
+              { key: 'people', label: 'People', type: 'number', get: (v) => v.visit_contacts.length, render: (v) => `${v.visit_contacts.length} people` },
+            ]}
+            exportName="customer_visits"
+            searchHint="Search by Visit ID or purpose…"
+            emptyText="No visits yet."
+            onRowClick={(v) => navigate(`/presentation/${v.id}`)}
+          />
         </Panel>
       )}
       {tab === 'swatches' && <SwatchHistoryTab history={swatchHistory} teamRollup={teamRollup} />}
@@ -316,64 +305,43 @@ function SwatchHistoryTab({ history, teamRollup }) {
   return (
     <>
       <Panel title="Swatches by team" count={teamRollup?.length || 0}>
-        {teamRollup?.length ? (
-          <table>
-            <tr>
-              <th>Team</th>
-              <th>People</th>
-              <th>Hangers</th>
-              <th>Swatches</th>
-              <th>≈ Fabric</th>
-              <th>Replied</th>
-            </tr>
-            {teamRollup.map((t) => (
-              <tr key={t.team}>
-                <td>
-                  <b>{t.team}</b>
-                </td>
-                <td>{t.peopleCount}</td>
-                <td>{t.hangers}</td>
-                <td>{t.swatches}</td>
-                <td>{fmtMeters(t.m)}</td>
-                <td>{t.replyRate == null ? '—' : `${t.replyRate}%`}</td>
-              </tr>
-            ))}
-          </table>
-        ) : (
-          <Empty text="No swatches given to this company yet." />
-        )}
+        <DataTable
+          id="swatch-history-team"
+          rows={teamRollup || []}
+          columns={[
+            { key: 'team', label: 'Team', get: (t) => t.team, render: (t) => <b>{t.team}</b> },
+            { key: 'people', label: 'People', sortable: false, get: (t) => t.peopleNames || '' },
+            { key: 'hangers', label: 'Hangers', type: 'number', get: (t) => t.hangers },
+            { key: 'swatches', label: 'Swatches', type: 'number', get: (t) => t.swatches },
+            { key: 'm', label: '≈ Fabric', type: 'number', get: (t) => Math.round(t.m * 10) / 10, render: (t) => fmtMeters(t.m) },
+            { key: 'replied', label: 'Replied', sortable: false, get: (t) => `${t.replied} of ${t.followups}` },
+            { key: 'last_taken', label: 'Last taken', type: 'date', get: (t) => t.lastTaken || '', render: (t) => (t.lastTaken ? fmtDate(t.lastTaken) : '—') },
+          ]}
+          exportName="swatch_history_by_team"
+          searchHint="Search by team…"
+          emptyText="No swatches given to this company yet."
+          rowKey={(t) => t.team}
+        />
       </Panel>
       <Panel title="Swatch history (every item)" count={history.length}>
-      {history.length ? (
-        <table>
-          <tr>
-            <th>Visit date</th>
-            <th>Purpose</th>
-            <th>Given to</th>
-            <th>Team</th>
-            <th>Fabric</th>
-            <th>Type</th>
-            <th>Qty</th>
-            <th>Ordered?</th>
-          </tr>
-          {history.map((h, i) => (
-            <tr key={i}>
-              <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(h.visit_date)}</td>
-              <td>{h.collections || '—'}</td>
-              <td>{h.contact_name}</td>
-              <td>{h.team_name || '—'}</td>
-              <td>
-                <b>{h.fabric_code}</b> {h.fabric_name}
-              </td>
-              <td>{h.swatch_type}</td>
-              <td>{h.qty}</td>
-              <td>{h.ordered ? <span className="pill p-ok">Ordered</span> : '—'}</td>
-            </tr>
-          ))}
-        </table>
-      ) : (
-        <Empty text="No swatches given to this company yet." />
-      )}
+        <DataTable
+          id="swatch-history-items"
+          rows={history.map((h, i) => ({ ...h, _rowKey: i }))}
+          columns={[
+            { key: 'visit_date', label: 'Visit date', type: 'date', get: (h) => h.visit_date, render: (h) => fmtDate(h.visit_date) },
+            { key: 'collections', label: 'Purpose', get: (h) => h.collections || '' },
+            { key: 'contact_name', label: 'Given to', get: (h) => h.contact_name },
+            { key: 'team_name', label: 'Team', get: (h) => h.team_name || '' },
+            { key: 'fabric', label: 'Fabric', get: (h) => `${h.fabric_code} ${h.fabric_name}`, render: (h) => <><b>{h.fabric_code}</b> {h.fabric_name}</> },
+            { key: 'swatch_type', label: 'Type', get: (h) => h.swatch_type },
+            { key: 'qty', label: 'Qty', type: 'number', get: (h) => h.qty },
+            { key: 'ordered', label: 'Ordered?', get: (h) => (h.ordered ? 'Ordered' : ''), render: (h) => (h.ordered ? <span className="pill p-ok">Ordered</span> : '—') },
+          ]}
+          exportName="swatch_history_items"
+          searchHint="Search by fabric, person, team…"
+          emptyText="No swatches given to this company yet."
+          rowKey={(h) => h._rowKey}
+        />
       </Panel>
     </>
   )
@@ -764,50 +732,37 @@ function ContactsTab({ customer: c, countries, reload, canEdit }) {
         ) : null
       }
     >
-      {c.contacts.length ? (
-        <table>
-          <tr>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Designation</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Address</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-          {c.contacts.map((x) => (
-            <tr key={x.id} className={x.status !== 'active' ? 'row-dim' : ''}>
-              <td>
-                <b>{x.name}</b>
-              </td>
-              <td>{c.teams.find((t) => t.id === x.team_id)?.name || '—'}</td>
-              <td>{x.designation || '—'}</td>
-              <td>{x.email || '—'}</td>
-              <td>{x.phone || '—'}</td>
-              <td>
-                {[x.address_line1, x.address_line2, x.city, x.state, x.country, x.pincode].filter(Boolean).join(', ') || '—'}
-              </td>
-              <td>{x.status === 'active' ? <span className="pill p-ok">Active</span> : <span className="pill p-bad">Inactive</span>}</td>
-              <td className="act">
-                {canEdit ? (
-                  x.status === 'active' ? (
-                    <button className="btn sm" onClick={() => deactivate(x.id)} type="button">
-                      Deactivate
-                    </button>
-                  ) : (
-                    <button className="btn sm" onClick={() => reactivate(x.id)} type="button">
-                      Reactivate
-                    </button>
-                  )
-                ) : null}
-              </td>
-            </tr>
-          ))}
-        </table>
-      ) : (
-        <Empty text="No people added yet." />
-      )}
+      <DataTable
+        id="customer-contacts"
+        rows={c.contacts}
+        columns={[
+          { key: 'name', label: 'Name', get: (x) => x.name, render: (x) => <b>{x.name}</b> },
+          { key: 'team', label: 'Team', get: (x) => c.teams.find((t) => t.id === x.team_id)?.name || '' },
+          { key: 'designation', label: 'Designation', get: (x) => x.designation || '' },
+          { key: 'email', label: 'Email', get: (x) => x.email || '' },
+          { key: 'phone', label: 'Phone', get: (x) => x.phone || '' },
+          { key: 'address', label: 'Address', sortable: false, get: (x) => [x.address_line1, x.address_line2, x.city, x.state, x.country, x.pincode].filter(Boolean).join(', ') },
+          { key: 'status', label: 'Status', get: (x) => x.status, render: (x) => (x.status === 'active' ? <span className="pill p-ok">Active</span> : <span className="pill p-bad">Inactive</span>) },
+        ]}
+        exportName="customer_contacts"
+        searchHint="Search by name, team, designation…"
+        emptyText="No people added yet."
+        rowClass={(x) => (x.status !== 'active' ? 'row-dim' : '')}
+        actions={
+          canEdit
+            ? (x) =>
+                x.status === 'active' ? (
+                  <button className="btn sm" onClick={() => deactivate(x.id)} type="button">
+                    Deactivate
+                  </button>
+                ) : (
+                  <button className="btn sm" onClick={() => reactivate(x.id)} type="button">
+                    Reactivate
+                  </button>
+                )
+            : undefined
+        }
+      />
     </Panel>
   )
 }

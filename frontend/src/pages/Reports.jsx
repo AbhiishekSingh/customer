@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import { Loading, ErrBox, PageHead, Panel, Field } from '../components/ui'
 import DatePicker from '../components/DatePicker'
+import DataTable from '../components/DataTable'
 
 function recentSeasons() {
   const now = new Date()
@@ -198,30 +199,23 @@ export default function Reports() {
       </div>
 
       <Panel title="Team performance" count={team.length}>
-        <table>
-          <tr>
-            <th>Design Team member</th>
-            <th>Follow-ups</th>
-            <th>Sent</th>
-            <th>Replies</th>
-            <th>Reply rate</th>
-            <th>Orders</th>
-            <th>Avg. cycle (days)</th>
-          </tr>
-          {team.map((t) => (
-            <tr key={t.user_id}>
-              <td>
-                <b>{t.name}</b>
-              </td>
-              <td>{t.visits}</td>
-              <td>{t.sent}</td>
-              <td>{t.resp}</td>
-              <td>{Math.round(t.rate * 100)}%</td>
-              <td>{t.orders}</td>
-              <td>{t.cycle ?? '—'}</td>
-            </tr>
-          ))}
-        </table>
+        <DataTable
+          id="reports-team"
+          rows={team}
+          columns={[
+            { key: 'name', label: 'Design Team member', get: (t) => t.name, render: (t) => <b>{t.name}</b> },
+            { key: 'visits', label: 'Follow-ups', type: 'number', get: (t) => t.visits },
+            { key: 'sent', label: 'Sent', type: 'number', get: (t) => t.sent },
+            { key: 'resp', label: 'Replies', type: 'number', get: (t) => t.resp },
+            { key: 'rate', label: 'Reply rate', type: 'number', get: (t) => Math.round(t.rate * 100), render: (t) => `${Math.round(t.rate * 100)}%` },
+            { key: 'orders', label: 'Orders', type: 'number', get: (t) => t.orders },
+            { key: 'cycle', label: 'Avg. cycle (days)', type: 'number', get: (t) => t.cycle ?? '', render: (t) => t.cycle ?? '—' },
+          ]}
+          exportName="reports_team_performance"
+          searchHint="Search by name…"
+          emptyText="No data for this filter."
+          rowKey={(t) => t.user_id}
+        />
       </Panel>
 
       <div className="grid g2">

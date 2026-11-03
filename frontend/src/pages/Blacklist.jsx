@@ -4,9 +4,10 @@ import { api } from '../api/client'
 import { useApi } from '../api/useApi'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { Loading, ErrBox, PageHead, Panel, Empty, Pill, fmtDate } from '../components/ui'
+import { Loading, ErrBox, PageHead, Panel, Pill, fmtDate } from '../components/ui'
 import { BL_TEXT } from '../lib/domain'
 import EvidenceModal from '../components/EvidenceModal'
+import DataTable from '../components/DataTable'
 
 export default function Blacklist() {
   const { user } = useAuth()
@@ -114,6 +115,70 @@ export default function Blacklist() {
     )
   }
 
+  const pendingColumns = [
+    {
+      key: 'company', label: 'Company', get: (ev) => custById[ev.customer_id]?.name || '',
+      render: (ev) => (
+        <>
+          <b>{custById[ev.customer_id]?.name}</b>
+          <div className="sub">{userById[custById[ev.customer_id]?.owner_id]?.name}</div>
+        </>
+      ),
+    },
+    { key: 'cat', label: 'Suggested', get: (ev) => 'Blacklist ' + ev.cat, render: (ev) => (
+      <>
+        <Pill text={'Blacklist ' + ev.cat} cls="p-warn" />
+        <div className="sub">{fmtDate(ev.created_at)}</div>
+      </>
+    ) },
+    { key: 'date', label: 'Date', type: 'date', get: (ev) => ev.created_at, render: (ev) => fmtDate(ev.created_at) },
+    { key: 'reason', label: 'Reason', get: (ev) => ev.reason },
+  ]
+
+  const bCandColumns = [
+    {
+      key: 'company', label: 'Company', get: (bc) => bc.customer_name,
+      render: (bc) => (
+        <>
+          <b>{bc.customer_name}</b>
+          <div className="sub">{userById[bc.owner_id]?.name}</div>
+        </>
+      ),
+    },
+    { key: 'visit_date', label: 'Last visit', type: 'date', get: (bc) => bc.visit_date, render: (bc) => fmtDate(bc.visit_date) },
+  ]
+
+  const exceptionColumns = [
+    { key: 'company', label: 'Company', get: (ex) => custById[ex.customer_id]?.name || '', render: (ex) => <b>{custById[ex.customer_id]?.name}</b> },
+    {
+      key: 'asked_by', label: 'Asked by', get: (ex) => userById[ex.requested_by]?.name || '',
+      render: (ex) => (
+        <>
+          {userById[ex.requested_by]?.name}
+          <div className="sub">{fmtDate(ex.created_at)}</div>
+        </>
+      ),
+    },
+    { key: 'date', label: 'Date', type: 'date', get: (ex) => ex.created_at, render: (ex) => fmtDate(ex.created_at) },
+    { key: 'reason', label: 'Reason', get: (ex) => ex.reason },
+  ]
+
+  const blacklistedColumns = [
+    {
+      key: 'company', label: 'Company', get: (c) => c.name,
+      render: (c) => (
+        <>
+          <b>{c.name}</b>
+          <div className="sub">{userById[c.owner_id]?.name}</div>
+        </>
+      ),
+    },
+    { key: 'cat', label: 'Category', get: (c) => c.blacklist_cat, render: (c) => <Pill text={'Blacklist ' + c.blacklist_cat} cls="p-bad" /> },
+    { key: 'since', label: 'Since', type: 'date', get: (c) => blacklistInfo[c.id]?.since || '', render: (c) => (blacklistInfo[c.id]?.since ? fmtDate(blacklistInfo[c.id].since) : '—') },
+    { key: 'reason', label: 'Reason', get: (c) => blacklistInfo[c.id]?.reason || '' },
+    { key: 'approved_by', label: 'Approved by', sortable: false, get: (c) => (blacklistInfo[c.id]?.approvedBy || []).join(', '), render: (c) => (blacklistInfo[c.id]?.approvedBy?.length ? blacklistInfo[c.id].approvedBy.join(', ') : '—') },
+  ]
+
   return (
     <div>
       <PageHead title="Blacklist" sub="The system checks the rules every day and only SUGGESTS a blacklist. A company is blacklisted only when ALL Top Management members approve." />
@@ -139,49 +204,34 @@ export default function Blacklist() {
       </div>
 
       <Panel title="Waiting for Top Management approval" count={events.length} hot>
-        {events.length ? (
-          <table>
-            <tr>
-              <th>Company</th>
-              <th>Suggested</th>
-              <th>Reason</th>
-              <th>Approvals</th>
-            </tr>
-            {events.map((ev) => {
-              const c = custById[ev.customer_id]
-              const mine = isTop && !ev.approvals.some((a) => a.approver_id === user.id)
-              return (
-                <tr className="click" key={ev.id} onClick={() => navigate(`/customers/${ev.customer_id}`)}>
-                  <td>
-                    <b>{c?.name}</b>
-                    <div className="sub">{userById[c?.owner_id]?.name}</div>
-                  </td>
-                  <td>
-                    <Pill text={'Blacklist ' + ev.cat} cls="p-warn" />
-                    <div className="sub">{fmtDate(ev.created_at)}</div>
-                  </td>
-                  <td>{ev.reason}</td>
-                  <td className="act" onClick={(e) => e.stopPropagation()}>
-                    {approvalChips(ev.approvals)} {whyBtn(ev.customer_id, c?.name)}
-                    {mine ? (
-                      <>
-                        {' '}
-                        <button className="btn sm primary" onClick={() => decide(ev.id, true)} type="button">
-                          Approve
-                        </button>{' '}
-                        <button className="btn sm danger" onClick={() => decide(ev.id, false)} type="button">
-                          Reject
-                        </button>
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
-              )
-            })}
-          </table>
-        ) : (
-          <Empty text="Nothing waiting." />
-        )}
+        <DataTable
+          id="blacklist-pending"
+          rows={events}
+          columns={pendingColumns}
+          exportName="blacklist_pending"
+          searchHint="Search by company or reason…"
+          emptyText="Nothing waiting."
+          onRowClick={(ev) => navigate(`/customers/${ev.customer_id}`)}
+          actions={(ev) => {
+            const mine = isTop && !ev.approvals.some((a) => a.approver_id === user.id)
+            return (
+              <>
+                {approvalChips(ev.approvals)} {whyBtn(ev.customer_id, custById[ev.customer_id]?.name)}
+                {mine ? (
+                  <>
+                    {' '}
+                    <button className="btn sm primary" onClick={() => decide(ev.id, true)} type="button">
+                      Approve
+                    </button>{' '}
+                    <button className="btn sm danger" onClick={() => decide(ev.id, false)} type="button">
+                      Reject
+                    </button>
+                  </>
+                ) : null}
+              </>
+            )
+          }}
+        />
       </Panel>
 
       {bCandidates.length ? (
@@ -189,109 +239,77 @@ export default function Blacklist() {
           <p className="hint" style={{ padding: '10px 16px 0', margin: 0 }}>
             These companies replied but never gave feedback or a decision. Blacklist B applies only if they now talk only to the marketing team — confirm if that is true, and the suggestion goes to Top Management.
           </p>
-          <table>
-            <tr>
-              <th>Company</th>
-              <th>Last visit</th>
-              <th></th>
-            </tr>
-            {bCandidates.map((bc) => (
-              <tr className="click" key={bc.customer_id} onClick={() => navigate(`/customers/${bc.customer_id}`)}>
-                <td>
-                  <b>{bc.customer_name}</b>
-                  <div className="sub">{userById[bc.owner_id]?.name}</div>
-                </td>
-                <td>{fmtDate(bc.visit_date)}</td>
-                <td className="act" onClick={(e) => e.stopPropagation()}>
-                  <button className="btn sm primary" onClick={() => confirmMarketingOnly(bc.customer_id)} type="button">
-                    Confirm: only talks to marketing
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </table>
+          <DataTable
+            id="blacklist-b-candidates"
+            rows={bCandidates}
+            columns={bCandColumns}
+            exportName="blacklist_b_candidates"
+            searchHint="Search by company…"
+            emptyText="Nothing waiting."
+            rowKey={(bc) => bc.customer_id}
+            onRowClick={(bc) => navigate(`/customers/${bc.customer_id}`)}
+            actions={(bc) => (
+              <button className="btn sm primary" onClick={() => confirmMarketingOnly(bc.customer_id)} type="button">
+                Confirm: only talks to marketing
+              </button>
+            )}
+          />
         </Panel>
       ) : null}
 
       {exceptions.length ? (
         <Panel title="Exception requests — give new swatches to a blacklisted company" count={exceptions.length} hot>
-          <table>
-            <tr>
-              <th>Company</th>
-              <th>Asked by</th>
-              <th>Reason</th>
-              <th></th>
-            </tr>
-            {exceptions.map((ex) => {
+          <DataTable
+            id="blacklist-exceptions"
+            rows={exceptions}
+            columns={exceptionColumns}
+            exportName="blacklist_exceptions"
+            searchHint="Search by company or reason…"
+            emptyText="Nothing waiting."
+            onRowClick={(ex) => navigate(`/customers/${ex.customer_id}`)}
+            actions={(ex) => {
               const c = custById[ex.customer_id]
               const mine = isTop
               return (
-                <tr className="click" key={ex.id} onClick={() => navigate(`/customers/${ex.customer_id}`)}>
-                  <td>
-                    <b>{c?.name}</b>
-                  </td>
-                  <td>
-                    {userById[ex.requested_by]?.name}
-                    <div className="sub">{fmtDate(ex.created_at)}</div>
-                  </td>
-                  <td>{ex.reason}</td>
-                  <td className="act" onClick={(e) => e.stopPropagation()}>
-                    {whyBtn(ex.customer_id, c?.name)}{' '}
-                    {mine ? (
-                      <>
-                        <button className="btn sm primary" onClick={() => decideExc(ex.id, true)} type="button">
-                          Approve
-                        </button>{' '}
-                        <button className="btn sm danger" onClick={() => decideExc(ex.id, false)} type="button">
-                          Reject
-                        </button>
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
+                <>
+                  {whyBtn(ex.customer_id, c?.name)}{' '}
+                  {mine ? (
+                    <>
+                      <button className="btn sm primary" onClick={() => decideExc(ex.id, true)} type="button">
+                        Approve
+                      </button>{' '}
+                      <button className="btn sm danger" onClick={() => decideExc(ex.id, false)} type="button">
+                        Reject
+                      </button>
+                    </>
+                  ) : null}
+                </>
               )
-            })}
-          </table>
+            }}
+          />
         </Panel>
       ) : null}
 
       <Panel title="Blacklisted companies" count={blacklisted.length}>
-        {blacklisted.length ? (
-          <table>
-            <tr>
-              <th>Company</th>
-              <th>Category</th>
-              <th>Since</th>
-              <th>Reason</th>
-              <th>Approved by</th>
-              <th></th>
-            </tr>
-            {blacklisted.map((c) => (
-              <tr className="click" key={c.id} onClick={() => navigate(`/customers/${c.id}`)}>
-                <td>
-                  <b>{c.name}</b>
-                  <div className="sub">{userById[c.owner_id]?.name}</div>
-                </td>
-                <td>
-                  <Pill text={'Blacklist ' + c.blacklist_cat} cls="p-bad" />
-                </td>
-                <td style={{ whiteSpace: 'nowrap' }}>{blacklistInfo[c.id]?.since ? fmtDate(blacklistInfo[c.id].since) : '—'}</td>
-                <td>{blacklistInfo[c.id]?.reason || '—'}</td>
-                <td>{blacklistInfo[c.id]?.approvedBy?.length ? blacklistInfo[c.id].approvedBy.join(', ') : '—'}</td>
-                <td className="act" onClick={(e) => e.stopPropagation()}>
-                  {whyBtn(c.id, c.name)}{' '}
-                  {isAdmin ? (
-                    <button className="btn sm" onClick={() => removeFromBlacklist(c.id, c.name, c.blacklist_cat)} type="button">
-                      Remove
-                    </button>
-                  ) : null}
-                </td>
-              </tr>
-            ))}
-          </table>
-        ) : (
-          <Empty text="No blacklisted companies." />
-        )}
+        <DataTable
+          id="blacklisted-companies"
+          rows={blacklisted}
+          columns={blacklistedColumns}
+          exportName="blacklisted_companies"
+          searchHint="Search by company or reason…"
+          emptyText="No blacklisted companies."
+          onRowClick={(c) => navigate(`/customers/${c.id}`)}
+          actions={(c) => (
+            <>
+              {whyBtn(c.id, c.name)}{' '}
+              {isAdmin ? (
+                <button className="btn sm" onClick={() => removeFromBlacklist(c.id, c.name, c.blacklist_cat)} type="button">
+                  Remove
+                </button>
+              ) : null}
+            </>
+          )}
+        />
       </Panel>
 
       {evidenceFor ? <EvidenceModal customerId={evidenceFor.id} customerName={evidenceFor.name} onClose={() => setEvidenceFor(null)} /> : null}
