@@ -36,39 +36,49 @@ function CategoryBlock({ title, hint, type, canEdit, usageCounts }) {
   if (error) return <ErrBox message={error} />
 
   return (
-    <Panel title={title} count={data.length}>
-      <p className="hint" style={{ padding: '10px 16px 0', margin: 0 }}>
+    <Panel title={title} count={data.length} className="cat-card">
+      <p className="hint" style={{ padding: '10px 16px', margin: 0 }}>
         {hint}
       </p>
-      <table>
-        <tr>
-          <th>Name</th>
-          <th>Used by</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-        {data
-          .slice()
-          .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
-          .map((x) => (
-            <tr key={x.id} className={x.status !== 'active' ? 'row-dim' : ''}>
-              <td>
-                <b>{x.name}</b>
-              </td>
-              <td>{usageCounts ? usageCounts[x.name] || 0 : '—'}</td>
-              <td>
-                <Pill text={x.status === 'active' ? 'Active' : 'Inactive'} cls={x.status === 'active' ? 'p-ok' : 'p-bad'} />
-              </td>
-              <td className="act">
-                {canEdit ? (
-                  <button className={'btn sm' + (x.status === 'active' ? ' danger' : '')} onClick={() => toggle(x.id)} type="button">
-                    {x.status === 'active' ? 'Deactivate' : 'Activate'}
-                  </button>
-                ) : null}
-              </td>
+      {/* Every category card is the same fixed height (see .cat-card) regardless of how many
+          rows it holds — a 2-row list and a 46-row list both render as the same-sized card, with
+          only this inner area scrolling, so the grid lines up edge to edge instead of some cards
+          towering over others. */}
+      <div className="cat-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Used by</th>
+              <th>Status</th>
+              <th></th>
             </tr>
-          ))}
-      </table>
+          </thead>
+          <tbody>
+            {data
+              .slice()
+              .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
+              .map((x) => (
+                <tr key={x.id} className={x.status !== 'active' ? 'row-dim' : ''}>
+                  <td>
+                    <b>{x.name}</b>
+                  </td>
+                  <td>{usageCounts ? usageCounts[x.name] || 0 : '—'}</td>
+                  <td>
+                    <Pill text={x.status === 'active' ? 'Active' : 'Inactive'} cls={x.status === 'active' ? 'p-ok' : 'p-bad'} />
+                  </td>
+                  <td className="act">
+                    {canEdit ? (
+                      <button className={'btn sm' + (x.status === 'active' ? ' danger' : '')} onClick={() => toggle(x.id)} type="button">
+                        {x.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
       {canEdit ? (
         <div className="row" style={{ padding: '12px 16px' }}>
           <input placeholder="New category name" style={{ maxWidth: 260 }} value={name} onChange={(e) => setName(e.target.value)} />
@@ -131,58 +141,64 @@ function SeasonBlock({ canEdit, usageCounts }) {
   if (error) return <ErrBox message={error} />
 
   return (
-    <Panel title="Season" count={data.length}>
-      <p className="hint" style={{ padding: '10px 16px 0', margin: 0 }}>
+    <Panel title="Season" count={data.length} className="cat-card">
+      <p className="hint" style={{ padding: '10px 16px', margin: 0 }}>
         Used to tag items by season on the Item Master. From/To dates are optional (e.g. AW 27-28 ≈ Jul–Dec) — leave blank if not known.
       </p>
-      <table>
-        <tr>
-          <th>Name</th>
-          <th>From</th>
-          <th>To</th>
-          <th>Used by</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-        {data
-          .slice()
-          .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
-          .map((s) => {
-            const d = draftFor(s)
-            const changed = d.date_from !== (s.date_from || '') || d.date_to !== (s.date_to || '')
-            return (
-              <tr key={s.id} className={s.status !== 'active' ? 'row-dim' : ''}>
-                <td>
-                  <b>{s.name}</b>
-                </td>
-                <td>
-                  <input type="date" style={{ width: 150 }} disabled={!canEdit} value={d.date_from} onChange={(e) => setDraft(s, 'date_from', e.target.value)} />
-                </td>
-                <td>
-                  <input type="date" style={{ width: 150 }} disabled={!canEdit} value={d.date_to} onChange={(e) => setDraft(s, 'date_to', e.target.value)} />
-                </td>
-                <td>{usageCounts ? usageCounts[s.name] || 0 : '—'}</td>
-                <td>
-                  <Pill text={s.status === 'active' ? 'Active' : 'Inactive'} cls={s.status === 'active' ? 'p-ok' : 'p-bad'} />
-                </td>
-                <td className="act">
-                  {canEdit ? (
-                    <>
-                      {changed ? (
-                        <button className="btn sm" onClick={() => saveDates(s)} type="button">
-                          Save dates
-                        </button>
-                      ) : null}{' '}
-                      <button className={'btn sm' + (s.status === 'active' ? ' danger' : '')} onClick={() => toggle(s.id)} type="button">
-                        {s.status === 'active' ? 'Deactivate' : 'Activate'}
-                      </button>
-                    </>
-                  ) : null}
-                </td>
-              </tr>
-            )
-          })}
-      </table>
+      <div className="cat-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Used by</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data
+              .slice()
+              .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
+              .map((s) => {
+                const d = draftFor(s)
+                const changed = d.date_from !== (s.date_from || '') || d.date_to !== (s.date_to || '')
+                return (
+                  <tr key={s.id} className={s.status !== 'active' ? 'row-dim' : ''}>
+                    <td>
+                      <b>{s.name}</b>
+                    </td>
+                    <td>
+                      <input type="date" style={{ width: 150 }} disabled={!canEdit} value={d.date_from} onChange={(e) => setDraft(s, 'date_from', e.target.value)} />
+                    </td>
+                    <td>
+                      <input type="date" style={{ width: 150 }} disabled={!canEdit} value={d.date_to} onChange={(e) => setDraft(s, 'date_to', e.target.value)} />
+                    </td>
+                    <td>{usageCounts ? usageCounts[s.name] || 0 : '—'}</td>
+                    <td>
+                      <Pill text={s.status === 'active' ? 'Active' : 'Inactive'} cls={s.status === 'active' ? 'p-ok' : 'p-bad'} />
+                    </td>
+                    <td className="act">
+                      {canEdit ? (
+                        <>
+                          {changed ? (
+                            <button className="btn sm" onClick={() => saveDates(s)} type="button">
+                              Save dates
+                            </button>
+                          ) : null}{' '}
+                          <button className={'btn sm' + (s.status === 'active' ? ' danger' : '')} onClick={() => toggle(s.id)} type="button">
+                            {s.status === 'active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </>
+                      ) : null}
+                    </td>
+                  </tr>
+                )
+              })}
+          </tbody>
+        </table>
+      </div>
       {canEdit ? (
         <div className="row" style={{ padding: '12px 16px' }}>
           <input placeholder="New season name" style={{ maxWidth: 260 }} value={name} onChange={(e) => setName(e.target.value)} />

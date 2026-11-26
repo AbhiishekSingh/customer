@@ -41,9 +41,9 @@ export function PageHead({ title, sub, actions }) {
   )
 }
 
-export function Panel({ title, count, hot, extra, children }) {
+export function Panel({ title, count, hot, extra, children, className }) {
   return (
-    <div className="card pad0">
+    <div className={'card pad0' + (className ? ' ' + className : '')}>
       <div className="panel-h">
         <h3>
           {title}
