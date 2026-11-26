@@ -399,7 +399,7 @@ export default function Categories() {
     <div>
       <PageHead title="Categories" sub="Lists used across the system. Categories are never deleted, only deactivated." />
       <h3 style={{ margin: '0 0 8px' }}>Item Master</h3>
-      <div className="grid g3">
+      <div className="grid g2">
         <CategoryBlock title="Gender" hint="An item can be tagged both Men's and Women's — used count is per item, not per tag." type="gender" canEdit={canEdit} usageCounts={genderCounts} />
         <SeasonBlock canEdit={canEdit} usageCounts={seasonCounts} />
         <CategoryBlock title="Story" hint="Used to group items by design story on the Item Master." type="story" canEdit={canEdit} usageCounts={storyCounts} />
@@ -415,7 +415,7 @@ export default function Categories() {
         <CategoryBlock title="Print Type" hint="e.g. Dyed, RFD, Digital Print — used on the Item Master." type="print_type" canEdit={canEdit} usageCounts={printTypeCounts} />
       </div>
       <h3 style={{ margin: '20px 0 8px' }}>Other categories</h3>
-      <div className="grid g3">
+      <div className="grid g2">
         <CategoryBlock title="Customer categories" hint="Used to group customers and filter customers and reports." type="customer" canEdit={canEdit} usageCounts={customerCatCounts} />
         <CategoryBlock title="Colors" hint="Used when logging which colour was given on a visit." type="color" canEdit={canEdit} usageCounts={colorCounts} />
       </div>
