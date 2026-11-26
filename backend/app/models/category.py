@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from sqlalchemy import Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Date, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -10,14 +11,23 @@ from app.models.enums import StatusEnum
 
 
 class Category(Base, UUIDPk, Timestamped):
-    """Flat master lists: fabric categories, customer categories.
-    Never hard-deleted — only deactivated (status flag)."""
+    """Flat master lists, one row per (type, name). Never hard-deleted — only deactivated (status
+    flag). Types in active use: 'fabric' (legacy D&D swatch category), 'customer', 'color', and —
+    added for the Item Master rebuild — 'gender', 'season', 'story', 'supplier',
+    'fabric_category' (Woven/Knit — distinct from the legacy 'fabric' type above), 'fabric_type',
+    'print_type'. See app/routers/categories.py VALID_TYPES for the authoritative list."""
     __tablename__ = "categories"
     __table_args__ = (UniqueConstraint("type", "name", name="uq_category_type_name"),)
 
-    type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'fabric' | 'customer'
+    type: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum, name="status_enum"), default=StatusEnum.active, nullable=False)
+    # Optional From/To date range — only meaningful for type='season' (e.g. "AW 27-28" ~ Jul-Dec);
+    # left NULL for every other category type. Kept on the shared Category row rather than a
+    # separate table since it's a single optional pair of fields used by exactly one type, and the
+    # generic list/create/toggle endpoints already work for every type without change.
+    date_from: Mapped["date | None"] = mapped_column(Date, nullable=True)
+    date_to: Mapped["date | None"] = mapped_column(Date, nullable=True)
 
 
 class Country(Base, UUIDPk, Timestamped):

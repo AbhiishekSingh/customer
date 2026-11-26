@@ -11,6 +11,7 @@ import EvidenceModal from '../components/EvidenceModal'
 import DatePicker from '../components/DatePicker'
 import ImageUpload, { displaySrc } from '../components/ImageUpload'
 import FileAttachments from '../components/FileAttachments'
+import ItemPickerModal from '../components/ItemPickerModal'
 
 const SWATCH_TYPES = ['Hanger', 'Swatch', 'Yardage']
 const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
@@ -46,6 +47,7 @@ export default function NewVisitEntry() {
   const [swatchHistory, setSwatchHistory] = useState([])
   const [newAttendee, setNewAttendee] = useState(null) // {team_name, name, designation, email, phone} or null when closed
   const [addingAttendee, setAddingAttendee] = useState(false)
+  const [pickerFor, setPickerFor] = useState(null) // line index the item picker modal is open for, or null
 
   const customer = useMemo(() => customers?.find((c) => c.id === customerId), [customers, customerId])
   const activeContacts = useMemo(() => (customer ? customer.contacts.filter((c) => c.status === 'active') : []), [customer])
@@ -350,52 +352,67 @@ export default function NewVisitEntry() {
         {attendeeIds.length && !blocked ? (
           <div className="card">
             <h3 style={{ marginBottom: 8 }}>Swatches / hangers given</h3>
-            {lines.map((l, i) => (
-              <div className="person" key={i}>
-                <div className="ph">
-                  <select style={{ flex: '1 1 160px' }} value={l.representative_contact_id} onChange={(e) => updateLine(i, 'representative_contact_id', e.target.value)}>
-                    <option value="">— attendee —</option>
-                    {activeContacts.filter((p) => attendeeIds.includes(p.id)).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    style={{ flex: '1 1 160px' }}
-                    placeholder="Sort no. (fabric code)"
-                    value={l.fabric_code}
-                    onChange={(e) => updateLine(i, 'fabric_code', e.target.value.toUpperCase())}
-                    list="fabric-codes"
-                  />
-                  <select style={{ flex: '0 1 130px' }} value={l.swatch_type} onChange={(e) => updateLine(i, 'swatch_type', e.target.value)}>
-                    {SWATCH_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <select style={{ flex: '0 1 130px' }} value={l.color || ''} onChange={(e) => updateLine(i, 'color', e.target.value)}>
-                    <option value="">— color —</option>
-                    {colorOptionsFor(l.fabric_code).map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                  <input className="qty" type="number" min="1" value={l.qty} onChange={(e) => updateLine(i, 'qty', e.target.value)} />
-                  {lines.length > 1 ? (
-                    <button type="button" className="btn ghost sm icon-btn" onClick={() => removeLine(i)} title="Remove">
-                      <Icon name="x" size={13} />
-                    </button>
-                  ) : null}
+            {lines.map((l, i) => {
+              const picked = fabrics.find((f) => f.code === l.fabric_code)
+              return (
+                <div className="person" key={i}>
+                  <div className="ph">
+                    <select style={{ flex: '1 1 160px' }} value={l.representative_contact_id} onChange={(e) => updateLine(i, 'representative_contact_id', e.target.value)}>
+                      <option value="">— attendee —</option>
+                      {activeContacts.filter((p) => attendeeIds.includes(p.id)).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div style={{ flex: '1 1 160px' }}>
+                      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                        <input
+                          style={{ flex: 1, minWidth: 90 }}
+                          placeholder="Sort no. (fabric code)"
+                          value={l.fabric_code}
+                          onChange={(e) => updateLine(i, 'fabric_code', e.target.value.toUpperCase())}
+                          list="fabric-codes"
+                        />
+                        <button type="button" className="btn sm" title="Browse & filter items" onClick={() => setPickerFor(i)}>
+                          <Icon name="search" size={13} />
+                        </button>
+                      </div>
+                      {picked ? (
+                        <div className="hint" style={{ marginTop: 2 }}>
+                          {[picked.fabric_category, picked.fabric_type, picked.supplier].filter(Boolean).join(' · ')}
+                        </div>
+                      ) : null}
+                    </div>
+                    <select style={{ flex: '0 1 130px' }} value={l.swatch_type} onChange={(e) => updateLine(i, 'swatch_type', e.target.value)}>
+                      {SWATCH_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                    <select style={{ flex: '0 1 130px' }} value={l.color || ''} onChange={(e) => updateLine(i, 'color', e.target.value)}>
+                      <option value="">— color —</option>
+                      {colorOptionsFor(l.fabric_code).map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    <input className="qty" type="number" min="1" value={l.qty} onChange={(e) => updateLine(i, 'qty', e.target.value)} />
+                    {lines.length > 1 ? (
+                      <button type="button" className="btn ghost sm icon-btn" onClick={() => removeLine(i)} title="Remove">
+                        <Icon name="x" size={13} />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
             <datalist id="fabric-codes">
               {fabrics.map((f) => (
                 <option key={f.id} value={f.code}>
-                  {f.name}
+                  {(f.development_no || f.name) + ' · ' + [f.fabric_category, f.fabric_type, f.supplier].filter(Boolean).join(' / ')}
                 </option>
               ))}
             </datalist>
@@ -418,6 +435,16 @@ export default function NewVisitEntry() {
 
       {showEvidence && customer ? (
         <EvidenceModal customerId={customer.id} customerName={customer.name} onClose={() => setShowEvidence(false)} />
+      ) : null}
+      {pickerFor !== null ? (
+        <ItemPickerModal
+          fabrics={fabrics}
+          onChoose={(code) => {
+            updateLine(pickerFor, 'fabric_code', code)
+            setPickerFor(null)
+          }}
+          onClose={() => setPickerFor(null)}
+        />
       ) : null}
     </div>
   )
@@ -494,7 +521,8 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
             <tr key={i}>
               <td>{p?.name || '—'}</td>
               <td>
-                <b>{l.fabric_code}</b> {f?.name || ''}
+                <b>{l.fabric_code}</b>
+                {f ? <div className="hint">{[f.development_no, f.fabric_category, f.fabric_type, f.supplier].filter(Boolean).join(' · ')}</div> : null}
               </td>
               <td>{l.swatch_type}</td>
               <td>{l.color || '—'}</td>
