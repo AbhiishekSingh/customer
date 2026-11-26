@@ -96,7 +96,11 @@ p.hint{margin:4px 0 0}
 .panel-h .spacer{flex:1}
 .cnt{display:inline-block;min-width:18px;text-align:center;background:var(--line-2);color:var(--ink-2);border-radius:10px;padding:0 6px;font-size:11.5px;font-weight:600;margin-left:4px}
 .cnt.hot{background:var(--bad);color:#fff}
-.grid{display:grid;gap:14px}
+/* align-items:start — without this, every card in a grid row is stretched to match the row's
+   tallest sibling, so a card with less content (e.g. a category list with only 2 entries sitting
+   next to one with 12) ends up with a big dead strip of blank space below its own content instead
+   of just ending where its content ends. */
+.grid{display:grid;gap:14px;align-items:start}
 .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -329,7 +333,13 @@ input[type=checkbox],input[type=radio]{width:auto;margin:0 6px 0 0}
 
 /* ---------- visit entry (people & swatches) ---------- */
 .person{border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;background:#fbfbfd}
-.person .ph{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+/* align-items:flex-start — the Sort No. cell can grow a second line (the picked item's
+   category/type/supplier hint, or later an error), which made the plain single-line
+   attendee/swatch-type/qty controls beside it drift down to sit centered against that taller
+   cell instead of lining up with its input box. flex-start keeps every control's top edge level
+   regardless of what grows underneath any one of them. */
+.person .ph{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px}
+.person .ph>select,.person .ph>input.qty{margin-top:0}
 .person table td,.person table th{padding:5px 8px}
 .person input.qty{width:70px}
 .totals{display:flex;gap:18px;flex-wrap:wrap;padding:10px 16px;background:var(--indigo-soft);border-radius:var(--radius);margin-bottom:12px}
