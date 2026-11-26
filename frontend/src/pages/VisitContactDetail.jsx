@@ -195,12 +195,13 @@ export default function VisitContactDetail() {
       ) : null}
 
       <div className="card">
-        <div className="dots-legend hint" style={{ marginBottom: 8 }}>
-          <span className="dots"><i className="resp" /></span> Replied &nbsp;
-          <span className="dots"><i className="sent" /></span> Sent, no reply &nbsp;
-          <span className="dots"><i className="bounce" /></span> Bounced &nbsp;
-          <span className="dots"><i className="skip" /></span> Not needed &nbsp;
-          <span className="dots"><i /></span> Planned
+        {/* className="legend" — "dots-legend" has no CSS rule; see Visits.jsx for the same fix. */}
+        <div className="legend" style={{ marginBottom: 8 }}>
+          <span><span className="dots"><i className="resp" /></span> Replied</span>
+          <span><span className="dots"><i className="sent" /></span> Sent, no reply</span>
+          <span><span className="dots"><i className="bounce" /></span> Bounced</span>
+          <span><span className="dots"><i className="skip" /></span> Not needed</span>
+          <span><span className="dots"><i /></span> Planned</span>
         </div>
         <div className="tracker">
           <div className="tk done">

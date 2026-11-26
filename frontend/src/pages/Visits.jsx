@@ -146,12 +146,16 @@ export default function Visits() {
           </a>
         ))}
       </div>
-      <div className="dots-legend hint" style={{ marginBottom: 10 }}>
-        <span className="dots"><i className="resp" /></span> Replied &nbsp;
-        <span className="dots"><i className="sent" /></span> Sent, no reply &nbsp;
-        <span className="dots"><i className="bounce" /></span> Bounced &nbsp;
-        <span className="dots"><i className="skip" /></span> Not needed &nbsp;
-        <span className="dots"><i /></span> Planned
+      {/* className="legend" — not "dots-legend": that class has no CSS rule, so this row was
+          falling back to plain inline text (manual &nbsp; gaps, dots sitting off the text
+          baseline) instead of the proper flex legend layout .legend/.legend span already define
+          and every other dot-legend in the app (see DataTable/.legend usages) relies on. */}
+      <div className="legend" style={{ marginBottom: 10 }}>
+        <span><span className="dots"><i className="resp" /></span> Replied</span>
+        <span><span className="dots"><i className="sent" /></span> Sent, no reply</span>
+        <span><span className="dots"><i className="bounce" /></span> Bounced</span>
+        <span><span className="dots"><i className="skip" /></span> Not needed</span>
+        <span><span className="dots"><i /></span> Planned</span>
       </div>
       <DataTable
         id={'visits-' + filter}
