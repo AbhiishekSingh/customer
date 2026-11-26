@@ -58,10 +58,24 @@ def update_fabric(fabric_id: uuid.UUID, payload: FabricUpdate, db: Session = Dep
     return fabric
 
 
+#: Columns copied verbatim from a FabricImportRow onto a Fabric when importing — everything
+#: except `code` (normalized separately, used as the lookup key) and `name` (always re-derived
+#: below so a row with a blank name still gets one, matching FabricCreate's own behaviour).
+_IMPORT_FIELDS = [
+    "quality_category", "composition", "gsm", "supplier",
+    "development_no", "gender", "season", "story", "fabric_category", "fabric_type", "print_type",
+    "lapf_domestic", "lapf_export", "warp", "weft", "fin_const", "width_cm", "width_inch",
+    "price_meter", "moq", "remark", "sort_no_sticker", "dia_inch", "structure_gauge", "fibre", "yarn_details",
+]
+
+
 @router.post("/import", response_model=FabricImportResult)
 def import_fabrics(rows: list[FabricImportRow], db: Session = Depends(get_db), user: User = Depends(require_any)) -> FabricImportResult:
     """All-or-nothing: every row must be valid before anything is committed (§3 of the validation
-    doc — avoids the ambiguity of a partial-success import the prototype's demo CSV importer had)."""
+    doc — avoids the ambiguity of a partial-success import the prototype's demo CSV importer had).
+    Only `code` is required per row — name is auto-derived (FabricImportRow.derive_name) and every
+    other field, including the legacy quality_category, is optional, matching the Item Master
+    rebuild (the client's sheet has no name/quality_category columns at all)."""
     errors: list[str] = []
     seen_codes: set[str] = set()
     for i, row in enumerate(rows, start=1):
@@ -72,10 +86,6 @@ def import_fabrics(rows: list[FabricImportRow], db: Session = Depends(get_db), u
         if code in seen_codes:
             errors.append(f"Row {i}: duplicate code '{code}' within this import")
         seen_codes.add(code)
-        if not row.name.strip():
-            errors.append(f"Row {i}: name is required for '{code}'")
-        if not row.quality_category.strip():
-            errors.append(f"Row {i}: quality/category is required for '{code}'")
         if row.gsm is not None and row.gsm <= 0:
             errors.append(f"Row {i}: gsm must be a positive number for '{code}'")
     if errors:
@@ -84,16 +94,15 @@ def import_fabrics(rows: list[FabricImportRow], db: Session = Depends(get_db), u
     created = updated = 0
     for row in rows:
         code = row.code.strip().upper()
+        values = {field: getattr(row, field) for field in _IMPORT_FIELDS}
         existing = db.scalar(select(Fabric).where(Fabric.code == code))
         if existing:
-            existing.name = row.name.strip()
-            existing.quality_category = row.quality_category.strip()
-            existing.composition = row.composition
-            existing.gsm = row.gsm
+            existing.name = row.name or existing.name
+            for field, value in values.items():
+                setattr(existing, field, value)
             updated += 1
         else:
-            db.add(Fabric(code=code, name=row.name.strip(), quality_category=row.quality_category.strip(),
-                           composition=row.composition, gsm=row.gsm))
+            db.add(Fabric(code=code, name=row.name or code, **values))
             created += 1
     audit(db, user_id=user.id, action="import_fabrics", entity_type="fabric", detail={"created": created, "updated": updated})
     db.commit()

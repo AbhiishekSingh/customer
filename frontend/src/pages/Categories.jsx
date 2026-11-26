@@ -81,6 +81,120 @@ function CategoryBlock({ title, hint, type, canEdit, usageCounts }) {
   )
 }
 
+function SeasonBlock({ canEdit, usageCounts }) {
+  const toast = useToast()
+  const { data, error, loading, reload } = useApi(() => api.get('/categories/season'), [])
+  const [name, setName] = useState('')
+  const [dateDraft, setDateDraft] = useState({}) // { [id]: { date_from, date_to } }
+
+  async function toggle(id) {
+    try {
+      await api.post(`/categories/${id}/toggle`)
+      reload()
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+  async function add() {
+    if (!name.trim()) return
+    try {
+      await api.post('/categories', { type: 'season', name: name.trim() })
+      setName('')
+      reload()
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+  function draftFor(s) {
+    return dateDraft[s.id] || { date_from: s.date_from || '', date_to: s.date_to || '' }
+  }
+  function setDraft(s, field, value) {
+    setDateDraft((d) => ({ ...d, [s.id]: { ...draftFor(s), [field]: value } }))
+  }
+  async function saveDates(s) {
+    const d = draftFor(s)
+    try {
+      await api.patch(`/categories/${s.id}/dates`, { date_from: d.date_from || null, date_to: d.date_to || null })
+      toast('Saved')
+      setDateDraft((cur) => {
+        const next = { ...cur }
+        delete next[s.id]
+        return next
+      })
+      reload()
+    } catch (e) {
+      toast(e.message)
+    }
+  }
+
+  if (loading) return <Loading />
+  if (error) return <ErrBox message={error} />
+
+  return (
+    <Panel title="Season" count={data.length}>
+      <p className="hint" style={{ padding: '10px 16px 0', margin: 0 }}>
+        Used to tag items by season on the Item Master. From/To dates are optional (e.g. AW 27-28 ≈ Jul–Dec) — leave blank if not known.
+      </p>
+      <table>
+        <tr>
+          <th>Name</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Used by</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+        {data
+          .slice()
+          .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
+          .map((s) => {
+            const d = draftFor(s)
+            const changed = d.date_from !== (s.date_from || '') || d.date_to !== (s.date_to || '')
+            return (
+              <tr key={s.id} className={s.status !== 'active' ? 'row-dim' : ''}>
+                <td>
+                  <b>{s.name}</b>
+                </td>
+                <td>
+                  <input type="date" style={{ width: 150 }} disabled={!canEdit} value={d.date_from} onChange={(e) => setDraft(s, 'date_from', e.target.value)} />
+                </td>
+                <td>
+                  <input type="date" style={{ width: 150 }} disabled={!canEdit} value={d.date_to} onChange={(e) => setDraft(s, 'date_to', e.target.value)} />
+                </td>
+                <td>{usageCounts ? usageCounts[s.name] || 0 : '—'}</td>
+                <td>
+                  <Pill text={s.status === 'active' ? 'Active' : 'Inactive'} cls={s.status === 'active' ? 'p-ok' : 'p-bad'} />
+                </td>
+                <td className="act">
+                  {canEdit ? (
+                    <>
+                      {changed ? (
+                        <button className="btn sm" onClick={() => saveDates(s)} type="button">
+                          Save dates
+                        </button>
+                      ) : null}{' '}
+                      <button className={'btn sm' + (s.status === 'active' ? ' danger' : '')} onClick={() => toggle(s.id)} type="button">
+                        {s.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </>
+                  ) : null}
+                </td>
+              </tr>
+            )
+          })}
+      </table>
+      {canEdit ? (
+        <div className="row" style={{ padding: '12px 16px' }}>
+          <input placeholder="New season name" style={{ maxWidth: 260 }} value={name} onChange={(e) => setName(e.target.value)} />
+          <button className="btn" onClick={add} type="button">
+            Add
+          </button>
+        </div>
+      ) : null}
+    </Panel>
+  )
+}
+
 function CountriesStates({ canEdit, countryCounts, stateCounts }) {
   const toast = useToast()
   const { data: countries, error, loading, reload } = useApi(() => api.get('/categories/countries/all'), [])
@@ -233,20 +347,46 @@ function countBy(items, getKey) {
   return out
 }
 
+// Same as countBy, but getKeys returns an ARRAY of keys per item (for multi-select Item Master
+// fields like gender, or a supplier that can show up in Existing Supplier/LAPF Domestic/LAPF
+// Export on the same item — each counts once per item, not once per field, so a supplier used in
+// two of the three fields on one item is counted once, not twice, same as Set semantics).
+function countByMulti(items, getKeys) {
+  const out = {}
+  for (const item of items) {
+    const keys = new Set((getKeys(item) || []).filter(Boolean))
+    for (const key of keys) out[key] = (out[key] || 0) + 1
+  }
+  return out
+}
+
 export default function Categories() {
   const { user } = useAuth()
   const canEdit = isMgr(user?.role)
   const { data: fabrics } = useApi(() => api.get('/fabrics'), [])
   const { data: customers } = useApi(() => api.get('/customers'), [])
+  const { data: visits } = useApi(() => api.get('/visits'), [])
 
-  const fabricCatCounts = fabrics ? countBy(fabrics, (f) => f.quality_category) : null
+  // quality_category (legacy D&D swatch category) is intentionally not surfaced on this page
+  // anymore — it's not part of the Item Master rebuild (see Fabrics.jsx), kept only in the data
+  // model/API for backward compatibility with anything else that still reads it.
   const customerCatCounts = customers ? countBy(customers, (c) => c.category) : null
-  const colorCounts = fabrics
+  // Colour variants were removed from the Item Master form, so this no longer counts
+  // fabric.colour_variants (a field new items never populate) — it counts actual logged
+  // VisitItem.color values instead, matching what the "Colors" master is really used for now.
+  const colorCounts = visits
     ? countBy(
-        fabrics.flatMap((f) => (f.colour_variants || '').split(',').map((s) => s.trim()).filter(Boolean)),
+        visits.flatMap((v) => v.visit_contacts.flatMap((vc) => vc.items.map((i) => i.color))),
         (name) => name
       )
     : null
+  const genderCounts = fabrics ? countByMulti(fabrics, (f) => f.gender) : null
+  const seasonCounts = fabrics ? countBy(fabrics, (f) => f.season) : null
+  const storyCounts = fabrics ? countBy(fabrics, (f) => f.story) : null
+  const supplierCounts = fabrics ? countByMulti(fabrics, (f) => [f.supplier, ...(f.lapf_domestic || []), ...(f.lapf_export || [])]) : null
+  const fabricCategoryCounts = fabrics ? countBy(fabrics, (f) => f.fabric_category) : null
+  const fabricTypeCounts = fabrics ? countBy(fabrics, (f) => f.fabric_type) : null
+  const printTypeCounts = fabrics ? countBy(fabrics, (f) => f.print_type) : null
   const countryCounts = customers ? countBy(customers, (c) => c.country) : null
   const stateCounts = customers
     ? countBy(
@@ -258,10 +398,26 @@ export default function Categories() {
   return (
     <div>
       <PageHead title="Categories" sub="Lists used across the system. Categories are never deleted, only deactivated." />
+      <h3 style={{ margin: '0 0 8px' }}>Item Master</h3>
       <div className="grid g3">
-        <CategoryBlock title="Fabric categories" hint="Used to group items (swatches) and filter them when logging a visit." type="fabric" canEdit={canEdit} usageCounts={fabricCatCounts} />
+        <CategoryBlock title="Gender" hint="An item can be tagged both Men's and Women's — used count is per item, not per tag." type="gender" canEdit={canEdit} usageCounts={genderCounts} />
+        <SeasonBlock canEdit={canEdit} usageCounts={seasonCounts} />
+        <CategoryBlock title="Story" hint="Used to group items by design story on the Item Master." type="story" canEdit={canEdit} usageCounts={storyCounts} />
+        <CategoryBlock
+          title="Supplier"
+          hint="Used for Existing Supplier, Additional LAPF Domestic and LAPF Export on the Item Master — used count counts an item once even if a supplier appears in more than one of those fields on it."
+          type="supplier"
+          canEdit={canEdit}
+          usageCounts={supplierCounts}
+        />
+        <CategoryBlock title="Fabric Category" hint="Woven or Knit." type="fabric_category" canEdit={canEdit} usageCounts={fabricCategoryCounts} />
+        <CategoryBlock title="Fabric Type" hint="e.g. Twill, Jacquard, Dobby — used on the Item Master." type="fabric_type" canEdit={canEdit} usageCounts={fabricTypeCounts} />
+        <CategoryBlock title="Print Type" hint="e.g. Dyed, RFD, Digital Print — used on the Item Master." type="print_type" canEdit={canEdit} usageCounts={printTypeCounts} />
+      </div>
+      <h3 style={{ margin: '20px 0 8px' }}>Other categories</h3>
+      <div className="grid g3">
         <CategoryBlock title="Customer categories" hint="Used to group customers and filter customers and reports." type="customer" canEdit={canEdit} usageCounts={customerCatCounts} />
-        <CategoryBlock title="Colors" hint="Used on the Items form (colours an item is available in) and when logging which colour was given on a visit." type="color" canEdit={canEdit} usageCounts={colorCounts} />
+        <CategoryBlock title="Colors" hint="Used when logging which colour was given on a visit." type="color" canEdit={canEdit} usageCounts={colorCounts} />
       </div>
       <div style={{ marginTop: 16 }}>
         <CountriesStates canEdit={canEdit} countryCounts={countryCounts} stateCounts={stateCounts} />
