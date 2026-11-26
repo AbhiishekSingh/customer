@@ -12,6 +12,8 @@ import DatePicker from '../components/DatePicker'
 import ImageUpload, { displaySrc } from '../components/ImageUpload'
 import FileAttachments from '../components/FileAttachments'
 import ItemPickerModal from '../components/ItemPickerModal'
+import ItemDetailsModal from '../components/ItemDetailsModal'
+import { snapshotFromFabric } from '../lib/itemDetails'
 
 const SWATCH_TYPES = ['Hanger', 'Swatch', 'Yardage']
 const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
@@ -26,8 +28,6 @@ export default function NewVisitEntry() {
   const { data: customers, error: custErr, loading: custLoading, reload: reloadCustomers } = useApi(() => api.get('/customers'), [])
   const { data: fabrics, loading: fabLoading } = useApi(() => api.get('/fabrics', { active_only: true }), [])
   const { data: directory } = useApi(() => api.get('/directory/users'), [])
-  const { data: colors } = useApi(() => api.get('/categories/color'), [])
-  const activeColors = useMemo(() => (colors || []).filter((c) => c.status === 'active'), [colors])
 
   const [customerId, setCustomerId] = useState(preselected)
   const [showEvidence, setShowEvidence] = useState(false)
@@ -39,7 +39,7 @@ export default function NewVisitEntry() {
   const [presentedBy, setPresentedBy] = useState([])
   const [attachments, setAttachments] = useState([]) // [{ url, name }]
   const [attendeeIds, setAttendeeIds] = useState([])
-  const [lines, setLines] = useState([{ representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1, color: '' }])
+  const [lines, setLines] = useState([{ representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1, item_details: null }])
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [reviewing, setReviewing] = useState(false)
@@ -48,6 +48,7 @@ export default function NewVisitEntry() {
   const [newAttendee, setNewAttendee] = useState(null) // {team_name, name, designation, email, phone} or null when closed
   const [addingAttendee, setAddingAttendee] = useState(false)
   const [pickerFor, setPickerFor] = useState(null) // line index the item picker modal is open for, or null
+  const [detailsFor, setDetailsFor] = useState(null) // line index the item details modal is open for, or null
 
   const customer = useMemo(() => customers?.find((c) => c.id === customerId), [customers, customerId])
   const activeContacts = useMemo(() => (customer ? customer.contacts.filter((c) => c.status === 'active') : []), [customer])
@@ -123,20 +124,23 @@ export default function NewVisitEntry() {
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, [field]: value } : l)))
   }
   function addLine() {
-    setLines((ls) => [...ls, { representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1, color: '' }])
+    setLines((ls) => [...ls, { representative_contact_id: '', fabric_code: '', swatch_type: 'Hanger', qty: 1, item_details: null }])
   }
   function removeLine(i) {
     setLines((ls) => ls.filter((_, idx) => idx !== i))
   }
-  // Colors offered for a line: the item's own available colours (Fabric.colour_variants),
-  // narrowed to ones still active in the Colors master — falling back to every active colour
-  // when the item hasn't had any colours set up yet, so the field is never a dead end.
-  function colorOptionsFor(fabricCode) {
-    const activeNames = activeColors.map((c) => c.name)
-    const fabric = (fabrics || []).find((f) => f.code === fabricCode)
-    const itemColors = (fabric?.colour_variants || '').split(',').map((s) => s.trim()).filter(Boolean)
-    const narrowed = itemColors.filter((name) => activeNames.includes(name))
-    return narrowed.length ? narrowed : activeNames
+  // Picking a Sort No. (typed or via the picker) snapshots that item's current Item Master data
+  // onto the line (see lib/itemDetails.js) — editable from here on via the Details popup, and
+  // never written back to the Fabric itself. Re-picking the SAME code leaves an already-edited
+  // snapshot alone; picking a DIFFERENT code replaces it with a fresh snapshot of the new item.
+  function selectFabricCode(i, code) {
+    setLines((ls) =>
+      ls.map((l, idx) => {
+        if (idx !== i || l.fabric_code === code) return idx === i ? { ...l, fabric_code: code } : l
+        const f = (fabrics || []).find((x) => x.code === code)
+        return { ...l, fabric_code: code, item_details: f ? snapshotFromFabric(f) : null }
+      })
+    )
   }
 
   const validLines = lines.filter((l) => l.representative_contact_id && l.fabric_code)
@@ -154,6 +158,13 @@ export default function NewVisitEntry() {
   function updateItemFeedback(i, field, value) {
     setItemFeedback((s) => ({ ...s, [i]: { ...s[i], [field]: value } }))
   }
+  // ReviewStep is handed `validLines` (a FILTERED view of `lines`, so its own map indices don't
+  // line up with the real `lines` array) — match by object reference instead, which is safe
+  // because filter() never clones entries, so each validLines item IS the same object as in
+  // `lines`.
+  function updateLineDetailsByRef(lineRef, newDetails) {
+    setLines((ls) => ls.map((l) => (l === lineRef ? { ...l, item_details: newDetails } : l)))
+  }
 
   async function doSave() {
     setBusy(true)
@@ -167,8 +178,11 @@ export default function NewVisitEntry() {
         attachments: attachments.map((a) => a.url),
         attendee_contact_ids: attendeeIds,
         lines: validLines.map((l, i) => ({
-          ...l,
+          representative_contact_id: l.representative_contact_id,
+          fabric_code: l.fabric_code,
+          swatch_type: l.swatch_type,
           qty: parseInt(l.qty, 10) || 1,
+          item_details: l.item_details || null,
           sentiment: itemFeedback[i]?.sentiment || null,
           feedback_text: itemFeedback[i]?.text?.trim() || null,
           attachment_url: itemFeedback[i]?.attachment_url?.trim() || null,
@@ -207,6 +221,7 @@ export default function NewVisitEntry() {
           fabrics={fabrics}
           itemFeedback={itemFeedback}
           onFeedbackChange={updateItemFeedback}
+          onUpdateItemDetails={updateLineDetailsByRef}
           busy={busy}
           err={err}
           onBack={() => setReviewing(false)}
@@ -371,12 +386,17 @@ export default function NewVisitEntry() {
                           style={{ flex: 1, minWidth: 90 }}
                           placeholder="Sort no. (fabric code)"
                           value={l.fabric_code}
-                          onChange={(e) => updateLine(i, 'fabric_code', e.target.value.toUpperCase())}
+                          onChange={(e) => selectFabricCode(i, e.target.value.toUpperCase())}
                           list="fabric-codes"
                         />
                         <button type="button" className="btn sm" title="Browse & filter items" onClick={() => setPickerFor(i)}>
                           <Icon name="search" size={13} />
                         </button>
+                        {picked ? (
+                          <button type="button" className="btn sm" title="View / edit item details" onClick={() => setDetailsFor(i)}>
+                            Details
+                          </button>
+                        ) : null}
                       </div>
                       {picked ? (
                         <div className="hint" style={{ marginTop: 2 }}>
@@ -388,14 +408,6 @@ export default function NewVisitEntry() {
                       {SWATCH_TYPES.map((t) => (
                         <option key={t} value={t}>
                           {t}
-                        </option>
-                      ))}
-                    </select>
-                    <select style={{ flex: '0 1 130px' }} value={l.color || ''} onChange={(e) => updateLine(i, 'color', e.target.value)}>
-                      <option value="">— color —</option>
-                      {colorOptionsFor(l.fabric_code).map((name) => (
-                        <option key={name} value={name}>
-                          {name}
                         </option>
                       ))}
                     </select>
@@ -440,18 +452,28 @@ export default function NewVisitEntry() {
         <ItemPickerModal
           fabrics={fabrics}
           onChoose={(code) => {
-            updateLine(pickerFor, 'fabric_code', code)
+            selectFabricCode(pickerFor, code)
             setPickerFor(null)
           }}
           onClose={() => setPickerFor(null)}
+        />
+      ) : null}
+      {detailsFor !== null && lines[detailsFor]?.item_details ? (
+        <ItemDetailsModal
+          fabric={fabrics.find((f) => f.code === lines[detailsFor].fabric_code)}
+          details={lines[detailsFor].item_details}
+          editable
+          onSave={(d) => updateLine(detailsFor, 'item_details', d)}
+          onClose={() => setDetailsFor(null)}
         />
       ) : null}
     </div>
   )
 }
 
-function ReviewStep({ customer, date, collections, wayForward, presenterNames, attachments, attendees, lines, fabrics, itemFeedback, onFeedbackChange, busy, err, onBack, onConfirm }) {
+function ReviewStep({ customer, date, collections, wayForward, presenterNames, attachments, attendees, lines, fabrics, itemFeedback, onFeedbackChange, onUpdateItemDetails, busy, err, onBack, onConfirm }) {
   const fabricByCode = Object.fromEntries((fabrics || []).map((f) => [f.code, f]))
+  const [detailsLine, setDetailsLine] = useState(null) // the line object (by reference) being viewed, or null
   return (
     <div className="card">
       <ErrBox message={err} />
@@ -507,11 +529,11 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
           <th>Attendee</th>
           <th>Fabric</th>
           <th>Type</th>
-          <th>Color</th>
           <th>Qty</th>
           <th>Sentiment</th>
           <th>Note</th>
           <th>Photo</th>
+          <th></th>
         </tr>
         {lines.map((l, i) => {
           const p = attendees.find((a) => a.id === l.representative_contact_id)
@@ -525,7 +547,6 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
                 {f ? <div className="hint">{[f.development_no, f.fabric_category, f.fabric_type, f.supplier].filter(Boolean).join(' · ')}</div> : null}
               </td>
               <td>{l.swatch_type}</td>
-              <td>{l.color || '—'}</td>
               <td>{l.qty}</td>
               <td>
                 <select style={{ width: 'auto' }} value={fb.sentiment || ''} onChange={(e) => onFeedbackChange(i, 'sentiment', e.target.value)}>
@@ -541,6 +562,13 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
               <td>
                 <ImageUpload value={fb.attachment_url || ''} onChange={(url) => onFeedbackChange(i, 'attachment_url', url)} label="Photo" />
               </td>
+              <td className="act">
+                {l.item_details ? (
+                  <button className="btn sm" type="button" onClick={() => setDetailsLine(l)}>
+                    Details
+                  </button>
+                ) : null}
+              </td>
             </tr>
           )
         })}
@@ -553,6 +581,15 @@ function ReviewStep({ customer, date, collections, wayForward, presenterNames, a
           {busy ? 'Saving…' : 'Confirm & save visit'}
         </button>
       </div>
+      {detailsLine ? (
+        <ItemDetailsModal
+          fabric={fabricByCode[detailsLine.fabric_code]}
+          details={detailsLine.item_details}
+          editable
+          onSave={(d) => onUpdateItemDetails(detailsLine, d)}
+          onClose={() => setDetailsLine(null)}
+        />
+      ) : null}
     </div>
   )
 }

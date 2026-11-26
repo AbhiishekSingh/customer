@@ -140,7 +140,11 @@ def create_visit(payload: VisitCreate, db: Session = Depends(get_db), user: User
     for line in payload.lines:
         vc = vc_by_contact[line.representative_contact_id]
         fabric = fabrics_by_code[line.fabric_code]
-        item = VisitItem(visit_contact_id=vc.id, fabric_id=fabric.id, swatch_type=line.swatch_type, qty=line.qty, color=(line.color.strip() or None) if line.color else None)
+        item = VisitItem(
+            visit_contact_id=vc.id, fabric_id=fabric.id, swatch_type=line.swatch_type, qty=line.qty,
+            color=(line.color.strip() or None) if line.color else None,
+            item_details=line.item_details or None,
+        )
         db.add(item)
         if line.sentiment or (line.feedback_text and line.feedback_text.strip()) or (line.attachment_url and line.attachment_url.strip()):
             db.flush()  # need item.id before attaching feedback to it

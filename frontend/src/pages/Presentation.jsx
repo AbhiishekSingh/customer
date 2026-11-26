@@ -7,6 +7,8 @@ import { Loading, ErrBox, PageHead, Panel, Empty, blPill, fmtDate } from '../com
 import { dotsFor, visitStageText, visitStageCls, latestItemFeedback, mailName } from '../lib/domain'
 import { displaySrc } from '../components/ImageUpload'
 import DataTable from '../components/DataTable'
+import ItemDetailsModal from '../components/ItemDetailsModal'
+import { snapshotFromFabric } from '../lib/itemDetails'
 import { SendNowModal, PostponeModal, FixEmailModal, ManualResponseModal } from './VisitContactDetail'
 
 function pieces(items, type) {
@@ -24,6 +26,7 @@ export default function Presentation() {
   const [postponeMail, setPostponeMail] = useState(null)
   const [fixEmailMail, setFixEmailMail] = useState(null)
   const [respondFor, setRespondFor] = useState(null) // { mail, mails, vc, contact } or null
+  const [detailsItem, setDetailsItem] = useState(null) // { fabric, details } or null
 
   const { data, error, loading, reload } = useApi(async () => {
     const [visit, mails, fabrics, directory] = await Promise.all([
@@ -215,14 +218,16 @@ export default function Presentation() {
               { key: 'code', label: 'Sort no.', get: (r) => fabricById[r.it.fabric_id]?.code || '', render: (r) => <b>{fabricById[r.it.fabric_id]?.code}</b> },
               {
                 key: 'item', label: 'Item', get: (r) => fabricById[r.it.fabric_id]?.name || '',
-                render: (r) => (
-                  <>
-                    {fabricById[r.it.fabric_id]?.name}
-                    <div className="sub">{fabricById[r.it.fabric_id]?.quality_category}</div>
-                  </>
-                ),
+                render: (r) => {
+                  const snap = r.it.item_details || fabricById[r.it.fabric_id] || {}
+                  return (
+                    <>
+                      {fabricById[r.it.fabric_id]?.name}
+                      <div className="sub">{[snap.fabric_category, snap.fabric_type, snap.supplier].filter(Boolean).join(' · ')}</div>
+                    </>
+                  )
+                },
               },
-              { key: 'colour', label: 'Colour', get: (r) => fabricById[r.it.fabric_id]?.colour_variants || '' },
               { key: 'type', label: 'Type', get: (r) => r.it.swatch_type },
               { key: 'qty', label: 'Qty', type: 'number', get: (r) => r.it.qty },
               {
@@ -257,9 +262,29 @@ export default function Presentation() {
             searchHint="Search by person, sort no., item…"
             emptyText="No items on this visit."
             rowKey={(r) => r.it.id}
+            actions={(r) => (
+              <button
+                className="btn sm"
+                type="button"
+                onClick={() => {
+                  const fabric = fabricById[r.it.fabric_id]
+                  setDetailsItem({ fabric, details: r.it.item_details || snapshotFromFabric(fabric) })
+                }}
+              >
+                Details
+              </button>
+            )}
           />
         </Panel>
       )}
+      {detailsItem ? (
+        <ItemDetailsModal
+          fabric={detailsItem.fabric}
+          details={detailsItem.details}
+          editable={false}
+          onClose={() => setDetailsItem(null)}
+        />
+      ) : null}
 
       {tab === 'followup' && (
         <Panel title="Follow-up tracker" count={v.visit_contacts.length}>

@@ -89,7 +89,19 @@ class VisitItem(Base, UUIDPk, Timestamped):
     # Which specific color (categories(type='color').name) was actually given on this swatch line.
     # Free-standing from Fabric.colour_variants (the item's AVAILABLE colors) — this records the
     # ONE color handed over for this particular line. Optional/nullable: older rows and CSV-import
-    # rows never set it, and staff can still leave it blank.
+    # rows never set it, and staff can still leave it blank. No longer collected by the New Visit
+    # Entry UI (Colour was removed there per the Item Master rebuild) — kept only so historical
+    # rows that do have a value aren't silently dropped.
     color: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Snapshot of the Item Master's classification/sheet-detail fields (see
+    # frontend/src/lib/itemDetails.js ITEM_DETAIL_FIELDS for the exact field list), captured and
+    # made editable right at Customer Visit Entry time. Deliberately independent of `fabric_id` /
+    # the live Fabric row: editing it here (before the visit is saved) or reading it back later
+    # (Items given on a saved visit) NEVER reads or writes the real Item Master record — it's what
+    # was actually shown to the customer on this one visit, which may later diverge from the
+    # master if that item's Item Master entry is edited afterwards. Nullable: older rows (saved
+    # before this existed) simply have none, and the UI falls back to live Fabric data for those.
+    item_details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     visit_contact: Mapped["VisitContact"] = relationship(back_populates="items")

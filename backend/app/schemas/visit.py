@@ -11,8 +11,16 @@ class VisitLineIn(BaseModel):
     fabric_code: str
     swatch_type: SwatchTypeEnum = SwatchTypeEnum.hanger
     qty: int = 1
-    # Which color (categories(type='color').name) was given on this line. Optional.
+    # Which color (categories(type='color').name) was given on this line. Optional. No longer
+    # collected by the New Visit Entry UI (see VisitItem.color) — still accepted here so an older
+    # client or a CSV-style import that still sends it doesn't break.
     color: str | None = None
+    # Item Master snapshot captured/edited at visit-entry time — see VisitItem.item_details and
+    # frontend/src/lib/itemDetails.js. Not validated field-by-field here (it's a free-form
+    # dict of strings/lists copied from, then edited independently of, the Fabric row) —
+    # correctness of its *content* doesn't affect anything else in the system, it's purely
+    # point-in-time record-keeping for this one visit line.
+    item_details: dict | None = None
     # Optional — captured right at visit-entry time (the Review step), before any follow-up mail
     # exists. Stored as an ItemFeedback row with no mail_response_id (see app/models/mail.py).
     sentiment: str | None = None
@@ -126,6 +134,9 @@ class VisitItemOut(BaseModel):
     swatch_type: SwatchTypeEnum
     qty: int
     color: str | None = None
+    # See VisitItem.item_details — None on visits saved before this existed; the frontend falls
+    # back to the live Fabric record for those.
+    item_details: dict | None = None
     # Populated only by GET /visits/{id} (see visits.py get_visit) — the latest feedback logged
     # with no mail reply behind it, i.e. typed in directly at visit-entry time. None elsewhere.
     visit_entry_feedback: VisitEntryFeedbackOut | None = None
