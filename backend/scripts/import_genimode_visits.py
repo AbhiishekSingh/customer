@@ -26,9 +26,12 @@ It is NOT idempotent against partial success for an individual visit's items —
 re-run after a crash partway through one visit, delete that one visit first (cascades to its
 contacts/items/mails) rather than re-running as-is.
 
-All fabric codes are validated as existing + active BEFORE anything is written — if any are
-missing, nothing is created and the full list of missing codes is printed so you can fix Item
-Master (or the code list below) and re-run.
+All fabric codes are validated as existing + active BEFORE anything is written. Per Urvish's
+explicit decision on 2026-11-26 ("Skip these lines, import the rest now"), a missing/inactive
+code is NOT fatal: that one line is skipped for its person and everything else is still created.
+The script prints the full list of skipped codes and each attendee's before/after item count so
+you can see exactly what went in and add/activate the skipped codes in Item Master later if the
+client wants them added as a correction.
 
 Run once, against the real database:
     cd /var/www/abg-customer/backend
@@ -130,7 +133,10 @@ def main():
         owner = matches[0]
         print(f"Owner: {owner.name} <{owner.email}> ({owner.id})")
 
-        # Validate every fabric code up front — all or nothing.
+        # Validate every fabric code up front. Per Urvish's explicit choice on 2026-11-26 ("Skip
+        # these lines, import the rest now"), a missing/inactive code is SKIPPED — that one line
+        # is left out of its person's visit — rather than aborting the whole import. Collected here
+        # so SORT_NOS can be filtered down before anything is written.
         all_codes = sorted({code for codes in SORT_NOS.values() for code in codes})
         fabrics_by_code = {}
         missing = []
@@ -143,12 +149,16 @@ def main():
             else:
                 fabrics_by_code[code] = f
         if missing:
-            print(f"ABORTED: {len(missing)} of {len(all_codes)} sort no.'s are missing or inactive "
-                  f"in the Item Master — nothing was created. Add/activate these first, then re-run:")
+            print(f"{len(missing)} of {len(all_codes)} sort no.'s are missing or inactive in the "
+                  f"Item Master — these lines are SKIPPED (not imported), everything else proceeds:")
             for m in missing:
                 print(f"  - {m}")
-            return
-        print(f"All {len(all_codes)} distinct sort no.'s found and active.")
+        for name in SORT_NOS:
+            kept = [c for c in SORT_NOS[name] if c in fabrics_by_code]
+            if len(kept) != len(SORT_NOS[name]):
+                print(f"  {name}: {len(SORT_NOS[name])} -> {len(kept)} items after skipping missing codes")
+            SORT_NOS[name] = kept
+        print(f"{len(fabrics_by_code)} of {len(all_codes)} distinct sort no.'s found and active — proceeding with those.")
 
         customer = get_or_create_customer(db, owner)
         settings = get_settings(db)
