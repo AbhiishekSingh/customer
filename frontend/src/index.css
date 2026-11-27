@@ -13,6 +13,10 @@
   font-family:"Inter","Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif;
 }
 *{box-sizing:border-box}
+/* A wide table (many columns, or long unbroken values) must never make the whole PAGE scroll
+   sideways — that drags the fixed sidebar off-screen with it. Each table's own card scrolls
+   internally instead (see ".card:has(table)" below); this is just the belt-and-braces backstop. */
+html,body{overflow-x:hidden}
 body{margin:0;background:var(--bg);color:var(--ink);font-size:13.5px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 a{color:var(--indigo);text-decoration:none;cursor:pointer;transition:color .12s var(--ease)}
 a:hover{text-decoration:underline}
@@ -130,12 +134,16 @@ p.hint{margin:4px 0 0}
 .cat-card{display:flex;flex-direction:column;height:440px}
 .cat-card>.panel-h{flex:none}
 .cat-card>p.hint{flex:none;border-bottom:1px solid var(--line-2)}
-.cat-card>.cat-scroll{flex:1;min-height:0;overflow-y:auto}
+.cat-card>.cat-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:auto}
 .cat-card>.row{flex:none;border-top:1px solid var(--line-2);margin:0}
 .cat-scroll thead th{position:sticky;top:0}
 
-/* tables */
-table{width:100%;border-collapse:collapse}
+/* tables — a card holding a table (DataTable's toolkit tables, or a plain <table> dropped
+   straight into a .card, at any nesting depth) scrolls its OWN horizontal overflow instead of
+   letting the table burst out of the card and widen the whole page (which was dragging the fixed
+   sidebar sideways with it — reported on Items and Follow-ups, both built on DataTable). */
+.card:has(table){overflow-x:auto}
+table{width:max-content;min-width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle}
 th{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:#fafafb;white-space:nowrap}
 tr:last-child td{border-bottom:0}
