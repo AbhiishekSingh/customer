@@ -37,18 +37,28 @@ p.hint{margin:4px 0 0}
 /* ---------- shell ---------- */
 .layout{display:grid;grid-template-columns:208px 1fr;min-height:100vh}
 .side{background:var(--side);color:#c6c8d6;padding:14px 8px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
-.brand{padding:6px 10px 14px}
+.brand{padding:4px 10px 8px}
 .brand b{display:block;font-size:14.5px;color:#fff;line-height:1.2;letter-spacing:-.01em}
 .brand span{font-size:11px;color:#7d8098}
-.nav{flex:1;overflow:auto}
-.nav-group{margin-bottom:2px}
-.nav-group>.gh{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;color:#8c8fa6;font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:9px 10px 5px;cursor:pointer;transition:color .12s var(--ease)}
+/* The menu has grown (10 extra "Other Masters" links) since this was first laid out, so on a
+   shorter browser window (toolbars/bookmarks bar eating into the real viewport height) it can run
+   taller than the sidebar and need its own scroll — easy to trigger by accident with a mouse wheel
+   over the left edge, and easy to mistake for "items went missing" since nothing here showed it was
+   scrollable. Tightened spacing below reclaims room so this is now rare in practice; the thin
+   styled scrollbar + fade hints are the fallback for whatever's still short of that. */
+.nav{flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent;
+  mask-image:linear-gradient(to bottom,transparent 0,#000 10px,#000 calc(100% - 10px),transparent 100%)}
+.nav::-webkit-scrollbar{width:6px}
+.nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px}
+.nav::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35)}
+.nav-group{margin-bottom:1px}
+.nav-group>.gh{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;color:#8c8fa6;font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:7px 10px 4px;cursor:pointer;transition:color .12s var(--ease)}
 .nav-group>.gh:hover{color:#c6c8d6}
 .nav-group>.gh .car{margin-left:auto;opacity:.7;transition:transform .14s var(--ease)}
 .nav-group.open>.gh .car{transform:rotate(90deg)}
 .nav-group>.gi{display:none}
 .nav-group.open>.gi{display:block}
-.nav a{display:flex;align-items:center;gap:9px;color:#c6c8d6;padding:7px 10px;border-radius:var(--radius-sm);margin:1px 0;font-size:13.5px;transition:background .12s var(--ease),color .12s var(--ease)}
+.nav a{display:flex;align-items:center;gap:9px;color:#c6c8d6;padding:6px 10px;border-radius:var(--radius-sm);margin:1px 0;font-size:13.5px;transition:background .12s var(--ease),color .12s var(--ease)}
 .nav a:hover{background:rgba(255,255,255,.07);text-decoration:none}
 .nav a.active{background:#fff;color:var(--side);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .nav .ic{width:16px;flex:none;display:inline-flex;align-items:center;justify-content:center;opacity:.85}
