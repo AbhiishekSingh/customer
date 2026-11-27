@@ -15,8 +15,14 @@
 *{box-sizing:border-box}
 /* A wide table (many columns, or long unbroken values) must never make the whole PAGE scroll
    sideways — that drags the fixed sidebar off-screen with it. Each table's own card scrolls
-   internally instead (see ".card:has(table)" below); this is just the belt-and-braces backstop. */
-html,body{overflow-x:hidden}
+   internally instead (see ".card:has(table)" below), and that alone is enough (verified: no page
+   ever needs horizontal scroll once every table-holding card handles its own overflow).
+   NOTE: an `html,body{overflow-x:hidden}` backstop used to sit here, but it silently breaks the
+   sidebar's `position:sticky` on any page tall enough to need a vertical scroll (setting overflow-x
+   on body without overflow-y forces the browser to compute overflow-y as "auto" too on both html
+   and body, which confuses which element is the real scrolling box that sticky positions against).
+   That's why the sidebar kept losing its top items while scrolling down a long table, on EVERY page,
+   regardless of anything else changed here - removed for that reason; do not re-add it. */
 body{margin:0;background:var(--bg);color:var(--ink);font-size:13.5px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 a{color:var(--indigo);text-decoration:none;cursor:pointer;transition:color .12s var(--ease)}
 a:hover{text-decoration:underline}
@@ -47,7 +53,7 @@ p.hint{margin:4px 0 0}
    hid Home and the main Masters links - Customers/Items/Users - behind a scroll a mouse wheel near
    the left edge triggers by accident), only the lower-priority groups below Masters scroll now;
    Home and Masters always stay on screen. */
-.nav{flex:1;display:flex;flex-direction:column;overflow:visible}
+.nav{flex:1;min-height:0;display:flex;flex-direction:column;overflow:visible}
 .nav-scroll{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent;
   mask-image:linear-gradient(to bottom,transparent 0,#000 10px,#000 calc(100% - 10px),transparent 100%)}
 .nav-scroll::-webkit-scrollbar{width:6px}
