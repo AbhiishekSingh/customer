@@ -215,6 +215,35 @@ export default function Shell({ children }) {
   }
 
   const groups = NAV.filter((g) => !g.role || (g.role === 'mgr' ? isMgr(user?.role) : isAdmin(user?.role)))
+  // "Masters" (Customers/Items/Users & roles) is the group people reach for constantly, so it's
+  // pinned above the scroll line along with Home - on a short browser window (toolbars + the OS
+  // taskbar eating into the real viewport) it's the rest of the menu that scrolls out of view, never
+  // these. That was reported happening even after tightening the spacing, on a window short enough
+  // that scrolling is unavoidable - this makes sure it's always the LEAST-used groups that scroll.
+  const pinnedGroup = groups.find((g) => g.id === 'masters')
+  const scrollGroups = groups.filter((g) => g.id !== 'masters')
+
+  function renderGroup(g) {
+    return (
+      <div key={g.id} className={'nav-group' + (open[g.id] ? ' open' : '')}>
+        <button className="gh" type="button" onClick={() => toggle(g.id)}>
+          {g.label}
+          <Icon name="chevron-right" size={11} className="car" />
+        </button>
+        <div className="gi">
+          {g.items
+            .filter((it) => !it[3] || (it[3] === 'admin' ? isAdmin(user?.role) : it[3] === 'mgr' ? isMgr(user?.role) : true))
+            .map((it) => (
+              <NavLink key={it[0]} to={it[0]} className={({ isActive }) => (isActive ? 'active' : '')}>
+                <span className="ic"><Icon name={it[2]} size={16} /></span>
+                {it[1]}
+                {it[0] === '/blacklist' && blBadge ? <span className="count hot">{blBadge > 9 ? '9+' : blBadge}</span> : null}
+              </NavLink>
+            ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="layout">
@@ -229,25 +258,8 @@ export default function Shell({ children }) {
             {NAV_HOME[1]}
             {homeBadge ? <span className="count">{homeBadge > 9 ? '9+' : homeBadge}</span> : null}
           </NavLink>
-          {groups.map((g) => (
-            <div key={g.id} className={'nav-group' + (open[g.id] ? ' open' : '')}>
-              <button className="gh" type="button" onClick={() => toggle(g.id)}>
-                {g.label}
-                <Icon name="chevron-right" size={11} className="car" />
-              </button>
-              <div className="gi">
-                {g.items
-                  .filter((it) => !it[3] || (it[3] === 'admin' ? isAdmin(user?.role) : it[3] === 'mgr' ? isMgr(user?.role) : true))
-                  .map((it) => (
-                    <NavLink key={it[0]} to={it[0]} className={({ isActive }) => (isActive ? 'active' : '')}>
-                      <span className="ic"><Icon name={it[2]} size={16} /></span>
-                      {it[1]}
-                      {it[0] === '/blacklist' && blBadge ? <span className="count hot">{blBadge > 9 ? '9+' : blBadge}</span> : null}
-                    </NavLink>
-                  ))}
-              </div>
-            </div>
-          ))}
+          {pinnedGroup ? renderGroup(pinnedGroup) : null}
+          <div className="nav-scroll">{scrollGroups.map(renderGroup)}</div>
         </nav>
       </aside>
       <div className="main">

@@ -41,16 +41,18 @@ p.hint{margin:4px 0 0}
 .brand b{display:block;font-size:14.5px;color:#fff;line-height:1.2;letter-spacing:-.01em}
 .brand span{font-size:11px;color:#7d8098}
 /* The menu has grown (10 extra "Other Masters" links) since this was first laid out, so on a
-   shorter browser window (toolbars/bookmarks bar eating into the real viewport height) it can run
-   taller than the sidebar and need its own scroll — easy to trigger by accident with a mouse wheel
-   over the left edge, and easy to mistake for "items went missing" since nothing here showed it was
-   scrollable. Tightened spacing below reclaims room so this is now rare in practice; the thin
-   styled scrollbar + fade hints are the fallback for whatever's still short of that. */
-.nav{flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent;
+   shorter browser window (toolbars/bookmarks bar and the OS taskbar eating into the real viewport
+   height) it can run taller than the sidebar. Tightened spacing above/below reclaims some room, but
+   on a window short enough, something still has to scroll. Rather than scroll the WHOLE menu (which
+   hid Home and the main Masters links - Customers/Items/Users - behind a scroll a mouse wheel near
+   the left edge triggers by accident), only the lower-priority groups below Masters scroll now;
+   Home and Masters always stay on screen. */
+.nav{flex:1;display:flex;flex-direction:column;overflow:visible}
+.nav-scroll{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.22) transparent;
   mask-image:linear-gradient(to bottom,transparent 0,#000 10px,#000 calc(100% - 10px),transparent 100%)}
-.nav::-webkit-scrollbar{width:6px}
-.nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px}
-.nav::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35)}
+.nav-scroll::-webkit-scrollbar{width:6px}
+.nav-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:3px}
+.nav-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.35)}
 .nav-group{margin-bottom:1px}
 .nav-group>.gh{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;color:#8c8fa6;font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:7px 10px 4px;cursor:pointer;transition:color .12s var(--ease)}
 .nav-group>.gh:hover{color:#c6c8d6}
