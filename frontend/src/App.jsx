@@ -20,7 +20,16 @@ import Blacklist from './pages/Blacklist'
 import Reports from './pages/Reports'
 import Activity from './pages/Activity'
 import Fabrics from './pages/Fabrics'
-import Categories from './pages/Categories'
+import GenderMaster from './pages/masters/GenderMaster'
+import SeasonMaster from './pages/masters/SeasonMaster'
+import StoryMaster from './pages/masters/StoryMaster'
+import SupplierMaster from './pages/masters/SupplierMaster'
+import FabricCategoryMaster from './pages/masters/FabricCategoryMaster'
+import FabricTypeMaster from './pages/masters/FabricTypeMaster'
+import PrintTypeMaster from './pages/masters/PrintTypeMaster'
+import CustomerCategoryMaster from './pages/masters/CustomerCategoryMaster'
+import ColorMaster from './pages/masters/ColorMaster'
+import CountriesStatesMaster from './pages/masters/CountriesStatesMaster'
 import Users from './pages/Users'
 import Settings from './pages/Settings'
 import PortalPage from './pages/portal/PortalPage'
@@ -55,7 +64,21 @@ function AppRoutes() {
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/activity" element={<Protected><Activity /></Protected>} />
       <Route path="/fabrics" element={<Protected><Fabrics /></Protected>} />
-      <Route path="/categories" element={<Protected><Categories /></Protected>} />
+      {/* The old single bundled "/categories" page (Urvish's final-review point 1 — "Give all
+          masters in a separate link") is replaced by one route per master below, each with its
+          own sidebar link (see components/Shell.jsx). "/categories" itself now redirects to
+          Gender rather than 404ing for anyone with the old link bookmarked. */}
+      <Route path="/categories" element={<Navigate to="/masters/gender" replace />} />
+      <Route path="/masters/gender" element={<Protected><GenderMaster /></Protected>} />
+      <Route path="/masters/season" element={<Protected><SeasonMaster /></Protected>} />
+      <Route path="/masters/story" element={<Protected><StoryMaster /></Protected>} />
+      <Route path="/masters/supplier" element={<Protected><SupplierMaster /></Protected>} />
+      <Route path="/masters/fabric-category" element={<Protected><FabricCategoryMaster /></Protected>} />
+      <Route path="/masters/fabric-type" element={<Protected><FabricTypeMaster /></Protected>} />
+      <Route path="/masters/print-type" element={<Protected><PrintTypeMaster /></Protected>} />
+      <Route path="/masters/customer-category" element={<Protected><CustomerCategoryMaster /></Protected>} />
+      <Route path="/masters/color" element={<Protected><ColorMaster /></Protected>} />
+      <Route path="/masters/countries-states" element={<Protected><CountriesStatesMaster /></Protected>} />
       <Route path="/users" element={<Protected><Users /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />
 

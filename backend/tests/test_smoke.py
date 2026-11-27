@@ -76,16 +76,18 @@ def test_account_lockout_after_five_failures(client, auth):
 def test_create_fabric_and_duplicate_conflict(client, auth):
     headers = auth("admin")
     code = _uniq("FAB")
-    r = client.post("/fabrics", headers=headers, json={"code": code, "name": "Test Fabric", "quality_category": "Cotton"})
+    # season/story are required on fabric creation (Urvish, 2026-11-27 final-review point 3) —
+    # every fabric the suite creates below passes them for that reason.
+    r = client.post("/fabrics", headers=headers, json={"code": code, "name": "Test Fabric", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
     assert r.status_code == 201, r.text
-    r2 = client.post("/fabrics", headers=headers, json={"code": code, "name": "Dup", "quality_category": "Cotton"})
+    r2 = client.post("/fabrics", headers=headers, json={"code": code, "name": "Dup", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
     assert r2.status_code == 409
 
 
 def test_fabric_toggle_status(client, auth):
     headers = auth("admin")
     code = _uniq("FAB")
-    r = client.post("/fabrics", headers=headers, json={"code": code, "name": "Toggle Fabric", "quality_category": "Cotton"})
+    r = client.post("/fabrics", headers=headers, json={"code": code, "name": "Toggle Fabric", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
     fid = r.json()["id"]
     r2 = client.patch(f"/fabrics/{fid}", headers=headers, json={"status": "inactive"})
     assert r2.status_code == 200
@@ -123,7 +125,7 @@ def visit_setup(client, auth):
     design_h = auth("design")
 
     code = _uniq("FAB")
-    client.post("/fabrics", headers=admin_h, json={"code": code, "name": "Smoke Fabric", "quality_category": "Cotton"})
+    client.post("/fabrics", headers=admin_h, json={"code": code, "name": "Smoke Fabric", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
 
     me = client.get("/auth/me", headers=design_h).json()
     owner_id = me["id"]
@@ -462,7 +464,7 @@ def test_visit_entry_item_feedback_and_portal_reply_coexist(client, auth):
     design_h = auth("design")
 
     code = _uniq("FAB")
-    client.post("/fabrics", headers=admin_h, json={"code": code, "name": "Feedback Fabric", "quality_category": "Cotton"})
+    client.post("/fabrics", headers=admin_h, json={"code": code, "name": "Feedback Fabric", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
     me = client.get("/auth/me", headers=design_h).json()
     cust_name = _uniq("Customer")
     r = client.post("/customers", headers=design_h, json={
@@ -540,8 +542,8 @@ def test_visit_import_groups_rows_and_skips_no_follow_up(client, auth):
 
     code1 = _uniq("FAB")
     code2 = _uniq("FAB")
-    client.post("/fabrics", headers=admin_h, json={"code": code1, "name": "Import Fabric 1", "quality_category": "Cotton"})
-    client.post("/fabrics", headers=admin_h, json={"code": code2, "name": "Import Fabric 2", "quality_category": "Cotton"})
+    client.post("/fabrics", headers=admin_h, json={"code": code1, "name": "Import Fabric 1", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
+    client.post("/fabrics", headers=admin_h, json={"code": code2, "name": "Import Fabric 2", "quality_category": "Cotton", "season": "AW 27-28", "story": "Blue Savannah"})
 
     me = client.get("/auth/me", headers=design_h).json()
     cust_name = _uniq("Customer")

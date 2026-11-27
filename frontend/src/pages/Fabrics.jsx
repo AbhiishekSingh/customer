@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext'
 import DataTable from '../components/DataTable'
 import CsvImportModal from '../components/CsvImportModal'
 import { PageHead, Loading, ErrBox, Modal, Field, Pill } from '../components/ui'
-import { MasterSelect, MasterChecklist } from '../components/MasterPicker'
+import { MasterSelect, MasterChecklist, MasterRadio, MasterTypeahead, MasterTagInput } from '../components/MasterPicker'
 
 // Every column that's actually on the client's Item Master sheet (AW 27-28 Commercial), plus
 // `code` (the sheet's Sort No.) as the required lookup key. Multi-value columns (gender,
@@ -166,7 +166,11 @@ function FabricModal({ fabric, onClose, onDone }) {
   const [form, setForm] = useState({
     code: fabric.code || '',
     development_no: fabric.development_no || '',
-    gender: fabric.gender || [],
+    // Gender is now single-select on this form (radio button — an item is Men's OR Women's, not
+    // both), so form state holds a plain string; converted back to the ["Men's"]-style array the
+    // backend/data-model still use (for backward compat with every other reader of fabric.gender)
+    // right before the save payload is built, below.
+    gender: (fabric.gender && fabric.gender[0]) || '',
     season: fabric.season || '',
     story: fabric.story || '',
     fabric_category: fabric.fabric_category || '',
@@ -205,12 +209,21 @@ function FabricModal({ fabric, onClose, onDone }) {
       setErr('Sort No. / Code is required')
       return
     }
+    if (!form.season) {
+      setErr('Season is required')
+      return
+    }
+    if (!form.story) {
+      setErr('Story is required')
+      return
+    }
     setBusy(true)
     try {
       const payload = {
         ...form,
         code: form.code.trim().toUpperCase(),
         gsm: form.gsm ? parseFloat(form.gsm) : null,
+        gender: form.gender ? [form.gender] : null,
       }
       // Name is no longer a field on this form (the sheet has no "name" column) — the backend
       // derives it from development_no (falling back to code) on create. On edit we simply don't
@@ -249,15 +262,25 @@ function FabricModal({ fabric, onClose, onDone }) {
       }
     >
       <ErrBox message={err} />
+      {/* Field order below follows the real AW 27-28 Commercial sheet's own column order (Urvish's
+          final-review point 13: "Please keep the fields in order same as excel file"), read directly
+          from the source workbook's header rows rather than guessed. The sheet is actually 4 tabs
+          (Men's/Women's × Woven/Knits) that don't share one column layout — Woven has Warp/Weft/Fin.
+          Const./Width in inch where Knits instead has Sticker sort no./FIBRE/Yarn Details/
+          Structure-Gauge/Dia in inch — so this single combined form interleaves both sets in the slot
+          they occupy on their own tab (hinted "Woven"/"Knits" below) rather than picking one layout.
+          Two corrections from the previous order: Fabric Type ("Weave" in the sheet) comes BEFORE
+          Fabric Category ("Type" in the sheet), not after — confirmed from the header row, where
+          Weave precedes Type on every tab; and Supplier/Price/MOQ/LAPF sit at the very END of the
+          row, after all the sheet-detail columns, not right after Season/Story/Story. Gender, Status
+          and the Code/Dev No. identity fields have no sheet column at all, so they stay in the
+          identity row up top and the Classification section, which is where they read most naturally. */}
       <div className="grid g2">
         <Field label="Sort No. / Code">
           <input value={form.code} disabled={!isNew} onChange={(e) => set('code', e.target.value.toUpperCase())} />
         </Field>
         <Field label="Development No.">
           <input value={form.development_no} onChange={(e) => set('development_no', e.target.value)} />
-        </Field>
-        <Field label="GSM">
-          <input type="number" value={form.gsm} onChange={(e) => set('gsm', e.target.value)} />
         </Field>
         {!isNew ? (
           <Field label="Status">
@@ -271,85 +294,32 @@ function FabricModal({ fabric, onClose, onDone }) {
 
       <h4 style={{ margin: '16px 0 8px' }}>Classification</h4>
       <div className="grid g2">
-        <MasterChecklist
+        <MasterRadio
           label="Gender"
           type="gender"
           categories={masterApi.gender.data}
-          values={form.gender}
+          value={form.gender}
           onChange={(v) => set('gender', v)}
           onCategoriesReload={masterApi.gender.reload}
-          hint="An item can be tagged both Men's and Women's."
+          hint="Men's or Women's — one gender per item."
         />
         <MasterSelect
-          label="Season"
+          label="Season *"
           type="season"
           categories={masterApi.season.data}
           value={form.season}
           onChange={(v) => set('season', v)}
           onCategoriesReload={masterApi.season.reload}
+          hint="Required"
         />
         <MasterSelect
-          label="Story"
+          label="Story *"
           type="story"
           categories={masterApi.story.data}
           value={form.story}
           onChange={(v) => set('story', v)}
           onCategoriesReload={masterApi.story.reload}
-        />
-        <MasterSelect
-          label="Fabric Category"
-          type="fabric_category"
-          categories={masterApi.fabric_category.data}
-          value={form.fabric_category}
-          onChange={(v) => set('fabric_category', v)}
-          onCategoriesReload={masterApi.fabric_category.reload}
-          hint="Woven or Knit."
-        />
-        <MasterSelect
-          label="Fabric Type"
-          type="fabric_type"
-          categories={masterApi.fabric_type.data}
-          value={form.fabric_type}
-          onChange={(v) => set('fabric_type', v)}
-          onCategoriesReload={masterApi.fabric_type.reload}
-        />
-        <MasterSelect
-          label="Print Type"
-          type="print_type"
-          categories={masterApi.print_type.data}
-          value={form.print_type}
-          onChange={(v) => set('print_type', v)}
-          onCategoriesReload={masterApi.print_type.reload}
-        />
-      </div>
-
-      <h4 style={{ margin: '16px 0 8px' }}>Supplier</h4>
-      <div className="grid g2">
-        <MasterSelect
-          label="Existing Supplier"
-          type="supplier"
-          categories={masterApi.supplier.data}
-          value={form.supplier}
-          onChange={(v) => set('supplier', v)}
-          onCategoriesReload={masterApi.supplier.reload}
-        />
-      </div>
-      <div className="grid g2">
-        <MasterChecklist
-          label="Additional LAPF Domestic"
-          type="supplier"
-          categories={masterApi.supplier.data}
-          values={form.lapf_domestic}
-          onChange={(v) => set('lapf_domestic', v)}
-          onCategoriesReload={masterApi.supplier.reload}
-        />
-        <MasterChecklist
-          label="LAPF Export"
-          type="supplier"
-          categories={masterApi.supplier.data}
-          values={form.lapf_export}
-          onChange={(v) => set('lapf_export', v)}
-          onCategoriesReload={masterApi.supplier.reload}
+          hint="Required"
         />
       </div>
 
@@ -361,23 +331,11 @@ function FabricModal({ fabric, onClose, onDone }) {
         <Field label="Weft" hint="Woven">
           <input value={form.weft} onChange={(e) => set('weft', e.target.value)} />
         </Field>
-        <Field label="Fin. Construction" hint="Woven">
-          <input value={form.fin_const} onChange={(e) => set('fin_const', e.target.value)} />
-        </Field>
         <Field label="Fabric Blend / Composition">
           <input value={form.composition} onChange={(e) => set('composition', e.target.value)} />
         </Field>
-        <Field label="Width in cm">
-          <input value={form.width_cm} onChange={(e) => set('width_cm', e.target.value)} />
-        </Field>
-        <Field label="Width in inch" hint="Woven">
-          <input value={form.width_inch} onChange={(e) => set('width_inch', e.target.value)} />
-        </Field>
-        <Field label="Price/meter">
-          <input value={form.price_meter} onChange={(e) => set('price_meter', e.target.value)} />
-        </Field>
-        <Field label="MOQ/MCQ">
-          <input value={form.moq} onChange={(e) => set('moq', e.target.value)} />
+        <Field label="Fin. Construction" hint="Woven">
+          <input value={form.fin_const} onChange={(e) => set('fin_const', e.target.value)} />
         </Field>
         <Field label="FIBRE" hint="Knits">
           <input value={form.fibre} onChange={(e) => set('fibre', e.target.value)} />
@@ -394,7 +352,90 @@ function FabricModal({ fabric, onClose, onDone }) {
         <Field label="Sort no. for Sticker Printing" hint="Knits">
           <input value={form.sort_no_sticker} onChange={(e) => set('sort_no_sticker', e.target.value)} />
         </Field>
+        <Field label="GSM">
+          <input type="number" value={form.gsm} onChange={(e) => set('gsm', e.target.value)} />
+        </Field>
+        <Field label="Width in cm">
+          <input type="number" step="any" min="0" value={form.width_cm} onChange={(e) => set('width_cm', e.target.value)} />
+        </Field>
+        <Field label="Width in inch" hint="Woven">
+          <input type="number" step="any" min="0" value={form.width_inch} onChange={(e) => set('width_inch', e.target.value)} />
+        </Field>
       </div>
+
+      <h4 style={{ margin: '16px 0 8px' }}>Fabric type</h4>
+      <div className="grid g2">
+        <MasterSelect
+          label="Fabric Type"
+          type="fabric_type"
+          categories={masterApi.fabric_type.data}
+          value={form.fabric_type}
+          onChange={(v) => set('fabric_type', v)}
+          onCategoriesReload={masterApi.fabric_type.reload}
+          hint="&quot;Weave&quot; in the sheet"
+        />
+        <MasterSelect
+          label="Print Type"
+          type="print_type"
+          categories={masterApi.print_type.data}
+          value={form.print_type}
+          onChange={(v) => set('print_type', v)}
+          onCategoriesReload={masterApi.print_type.reload}
+          hint="Woven only"
+        />
+        <MasterSelect
+          label="Fabric Category"
+          type="fabric_category"
+          categories={masterApi.fabric_category.data}
+          value={form.fabric_category}
+          onChange={(v) => set('fabric_category', v)}
+          onCategoriesReload={masterApi.fabric_category.reload}
+          hint="Woven or Knit — &quot;Type&quot; in the sheet"
+        />
+      </div>
+
+      <h4 style={{ margin: '16px 0 8px' }}>Supplier &amp; commercial</h4>
+      <div className="grid g2">
+        <MasterTypeahead
+          label="Existing Supplier"
+          type="supplier"
+          categories={masterApi.supplier.data}
+          value={form.supplier}
+          onChange={(v) => set('supplier', v)}
+          onCategoriesReload={masterApi.supplier.reload}
+          hint="Type to search — no need to scroll a list."
+        />
+        {/* Deliberately NOT type="number" — the real sheet has price/meter entries that are a RANGE
+            ("300/330", "115/135" for two quantity bands), same combined-value pattern as MOQ/MCQ.
+            A strict numeric input can't display or save a range at all, so it would silently blank
+            or corrupt that data for every item that has one. Flagged to Urvish; left as free text
+            pending his call on whether to keep ranges, split into two fields, or take one number. */}
+        <Field label="Price/meter">
+          <input value={form.price_meter} onChange={(e) => set('price_meter', e.target.value)} />
+        </Field>
+        <Field label="MOQ/MCQ">
+          <input value={form.moq} onChange={(e) => set('moq', e.target.value)} />
+        </Field>
+      </div>
+      <div className="grid g2">
+        <MasterTagInput
+          label="Additional LAPF Domestic"
+          type="supplier"
+          categories={masterApi.supplier.data}
+          values={form.lapf_domestic}
+          onChange={(v) => set('lapf_domestic', v)}
+          onCategoriesReload={masterApi.supplier.reload}
+        />
+        <MasterTagInput
+          label="LAPF Export"
+          type="supplier"
+          categories={masterApi.supplier.data}
+          values={form.lapf_export}
+          onChange={(v) => set('lapf_export', v)}
+          onCategoriesReload={masterApi.supplier.reload}
+        />
+      </div>
+
       <Field label="Remark">
         <textarea value={form.remark} onChange={(e) => set('remark', e.target.value)} />
       </Field>

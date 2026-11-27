@@ -381,23 +381,38 @@ export default function NewVisitEntry() {
                       ))}
                     </select>
                     <div style={{ flex: '1 1 160px' }}>
-                      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
-                        <input
-                          style={{ flex: 1, minWidth: 90 }}
-                          placeholder="Sort no. (fabric code)"
-                          value={l.fabric_code}
-                          onChange={(e) => selectFabricCode(i, e.target.value.toUpperCase())}
-                          list="fabric-codes"
-                        />
-                        <button type="button" className="btn sm" title="Browse & filter items" onClick={() => setPickerFor(i)}>
-                          <Icon name="search" size={13} />
-                        </button>
-                        {picked ? (
+                      {/* Once a Sort No. is picked (typed match or via the search picker), the field
+                          LOCKS — no more free typing over it. Per Urvish's final-review point "When
+                          clicking on search I am able to edit the details. This should not happen" —
+                          the only ways to change it from here are "Change" (clears the pick so it can
+                          be re-typed/re-searched) or "Details" (edits the item's snapshot, not the
+                          Sort No. itself). */}
+                      {l.fabric_code ? (
+                        <div className="row" style={{ gap: 4, flexWrap: 'nowrap', alignItems: 'center' }}>
+                          <div style={{ flex: 1, minWidth: 90 }} className="locked-code">
+                            <b>{l.fabric_code}</b>
+                          </div>
+                          <button type="button" className="btn sm" title="Clear and pick a different item" onClick={() => selectFabricCode(i, '')}>
+                            Change
+                          </button>
                           <button type="button" className="btn sm" title="View / edit item details" onClick={() => setDetailsFor(i)}>
                             Details
                           </button>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                          <input
+                            style={{ flex: 1, minWidth: 90 }}
+                            placeholder="Sort no. (fabric code)"
+                            value={l.fabric_code}
+                            onChange={(e) => selectFabricCode(i, e.target.value.toUpperCase())}
+                            list="fabric-codes"
+                          />
+                          <button type="button" className="btn sm" title="Browse & filter items" onClick={() => setPickerFor(i)}>
+                            <Icon name="search" size={13} />
+                          </button>
+                        </div>
+                      )}
                       {picked ? (
                         <div className="hint" style={{ marginTop: 2 }}>
                           {[picked.fabric_category, picked.fabric_type, picked.supplier].filter(Boolean).join(' · ')}

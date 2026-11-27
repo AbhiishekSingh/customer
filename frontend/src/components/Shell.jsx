@@ -13,8 +13,26 @@ const NAV = [
     items: [
       ['/customers', 'Customers', 'users'],
       ['/fabrics', 'Items', 'grid'],
-      ['/categories', 'Categories', 'list'],
       ['/users', 'Users & roles', 'shield', 'admin'],
+    ],
+  },
+  // Each former "Categories" card is its own page with its own link here (Urvish's final-review
+  // point 1 — "Give all masters in a separate link"), grouped under one collapsible section so the
+  // main Masters group above doesn't get crowded with 10 extra entries.
+  {
+    id: 'masters2',
+    label: 'Other Masters',
+    items: [
+      ['/masters/gender', 'Gender', 'users'],
+      ['/masters/season', 'Season', 'calendar'],
+      ['/masters/story', 'Story', 'file'],
+      ['/masters/supplier', 'Supplier', 'send'],
+      ['/masters/fabric-category', 'Fabric Category', 'grid'],
+      ['/masters/fabric-type', 'Fabric Type', 'grid'],
+      ['/masters/print-type', 'Print Type', 'grid'],
+      ['/masters/customer-category', 'Customer categories', 'list'],
+      ['/masters/color', 'Colors', 'list'],
+      ['/masters/countries-states', 'Countries & States', 'flag'],
     ],
   },
   {
@@ -174,7 +192,7 @@ function AccountMenu({ user, roleLabel, logout }) {
 export default function Shell({ children }) {
   const { user, roleLabel, logout } = useAuth()
   const navigate = useNavigate()
-  const [open, setOpen] = useState({ masters: true, ops: true, gov: true, insights: true, admin: true })
+  const [open, setOpen] = useState({ masters: true, masters2: false, ops: true, gov: true, insights: true, admin: true })
   const [search, setSearch] = useState('')
   const [homeBadge, setHomeBadge] = useState(0)
   const [blBadge, setBlBadge] = useState(0)

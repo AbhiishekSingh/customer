@@ -74,6 +74,20 @@ class FabricCreate(BaseModel):
         cleaned = [x.strip() for x in v if x and x.strip()]
         return cleaned or None
 
+    # Gender changed from multi-select to single-select on the Item Master form (Urvish,
+    # 2026-11-26 — reverses the earlier "can be tagged both" decision in
+    # Item-Master-Phase1-Scope.md). The column itself stays a list in the data model (so every
+    # existing reader of fabric.gender — reports, the item picker filter, usage counts — keeps
+    # working unchanged), but is now capped at one value here: if more than one somehow arrives
+    # (an old client, a stale tab, a future CSV re-import), only the FIRST is kept rather than
+    # rejecting the whole save outright.
+    @field_validator("gender")
+    @classmethod
+    def cap_gender_to_one(cls, v: list[str] | None) -> list[str] | None:
+        if v and len(v) > 1:
+            return v[:1]
+        return v
+
     @model_validator(mode="after")
     def derive_name(self) -> "FabricCreate":
         if not self.name:
@@ -131,6 +145,14 @@ class FabricUpdate(BaseModel):
             return None
         cleaned = [x.strip() for x in v if x and x.strip()]
         return cleaned or None
+
+    # See FabricCreate.cap_gender_to_one — same rule on edit.
+    @field_validator("gender")
+    @classmethod
+    def cap_gender_to_one(cls, v: list[str] | None) -> list[str] | None:
+        if v and len(v) > 1:
+            return v[:1]
+        return v
 
     @model_validator(mode="after")
     def no_blank_name(self) -> "FabricUpdate":

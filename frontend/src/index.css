@@ -443,3 +443,13 @@ th.sortable:hover{color:var(--ink-2)}
 .nav a.navlink{cursor:pointer}
 .link-btn{background:none;border:0;color:var(--indigo);cursor:pointer;font:inherit;padding:0}
 .link-btn:hover{text-decoration:underline}
+
+/* Locked Sort No. display (New Visit Entry) — reads like a disabled input, not a button, so it's
+   visually clear the code itself isn't directly editable from here (use Change / Details instead). */
+.locked-code{
+  display:flex;align-items:center;
+  height:34px;padding:0 10px;
+  border:1px solid var(--line-2);border-radius:var(--radius-sm,6px);
+  background:#f6f6f8;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}

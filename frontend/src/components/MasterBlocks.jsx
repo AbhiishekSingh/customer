@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { api } from '../api/client'
 import { useApi } from '../api/useApi'
-import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { PageHead, Panel, Pill, Loading, ErrBox } from '../components/ui'
-import Icon from '../components/Icon'
+import { Panel, Pill, Loading, ErrBox } from './ui'
+import Icon from './Icon'
 
-const isMgr = (role) => role === 'manager' || role === 'admin' || role === 'top'
+// Shared building blocks for the per-master pages under pages/masters/ — each master used to be one
+// card on a single bundled "Categories" page; per Urvish's final-review point 1 ("Give all masters
+// in a separate link") each now has its own route and its own sidebar link, but they all still
+// render with these same three components so the look, the add/activate/deactivate behaviour, and
+// the "used by" counts stay identical to how the bundled page worked.
 
-function CategoryBlock({ title, hint, type, canEdit, usageCounts }) {
+export function CategoryBlock({ title, hint, type, canEdit, usageCounts }) {
   const toast = useToast()
   const { data, error, loading, reload: reloadLocal } = useApi(() => api.get(`/categories/${type}`), [type])
   const [name, setName] = useState('')
@@ -91,10 +94,12 @@ function CategoryBlock({ title, hint, type, canEdit, usageCounts }) {
   )
 }
 
-function SeasonBlock({ canEdit, usageCounts }) {
+export function SeasonBlock({ canEdit, usageCounts }) {
   const toast = useToast()
   const { data, error, loading, reload } = useApi(() => api.get('/categories/season'), [])
   const [name, setName] = useState('')
+  const [newFrom, setNewFrom] = useState('')
+  const [newTo, setNewTo] = useState('')
   const [dateDraft, setDateDraft] = useState({}) // { [id]: { date_from, date_to } }
 
   async function toggle(id) {
@@ -108,8 +113,16 @@ function SeasonBlock({ canEdit, usageCounts }) {
   async function add() {
     if (!name.trim()) return
     try {
-      await api.post('/categories', { type: 'season', name: name.trim() })
+      // The create endpoint only takes type+name (categories of every type are created the same
+      // way) — From/To is a season-only extra, so it's applied as a second call right after
+      // creation, same PATCH the table rows below already use to edit dates post-creation.
+      const created = await api.post('/categories', { type: 'season', name: name.trim() })
+      if (newFrom || newTo) {
+        await api.patch(`/categories/${created.id}/dates`, { date_from: newFrom || null, date_to: newTo || null })
+      }
       setName('')
+      setNewFrom('')
+      setNewTo('')
       reload()
     } catch (e) {
       toast(e.message)
@@ -200,8 +213,10 @@ function SeasonBlock({ canEdit, usageCounts }) {
         </table>
       </div>
       {canEdit ? (
-        <div className="row" style={{ padding: '12px 16px' }}>
-          <input placeholder="New season name" style={{ maxWidth: 260 }} value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="row" style={{ padding: '12px 16px', flexWrap: 'wrap' }}>
+          <input placeholder="New season name" style={{ maxWidth: 200 }} value={name} onChange={(e) => setName(e.target.value)} />
+          <input type="date" title="From (optional)" style={{ width: 150 }} value={newFrom} onChange={(e) => setNewFrom(e.target.value)} />
+          <input type="date" title="To (optional)" style={{ width: 150 }} value={newTo} onChange={(e) => setNewTo(e.target.value)} />
           <button className="btn" onClick={add} type="button">
             Add
           </button>
@@ -211,7 +226,7 @@ function SeasonBlock({ canEdit, usageCounts }) {
   )
 }
 
-function CountriesStates({ canEdit, countryCounts, stateCounts }) {
+export function CountriesStates({ canEdit, countryCounts, stateCounts }) {
   const toast = useToast()
   const { data: countries, error, loading, reload } = useApi(() => api.get('/categories/countries/all'), [])
   const [open, setOpen] = useState({})
@@ -353,7 +368,7 @@ function CountriesStates({ canEdit, countryCounts, stateCounts }) {
   )
 }
 
-function countBy(items, getKey) {
+export function countBy(items, getKey) {
   const out = {}
   for (const item of items) {
     const key = getKey(item)
@@ -363,81 +378,15 @@ function countBy(items, getKey) {
   return out
 }
 
-// Same as countBy, but getKeys returns an ARRAY of keys per item (for multi-select Item Master
-// fields like gender, or a supplier that can show up in Existing Supplier/LAPF Domestic/LAPF
-// Export on the same item — each counts once per item, not once per field, so a supplier used in
-// two of the three fields on one item is counted once, not twice, same as Set semantics).
-function countByMulti(items, getKeys) {
+// Same as countBy, but getKeys returns an ARRAY of keys per item (for a supplier that can show up
+// in Existing Supplier/LAPF Domestic/LAPF Export on the same item — each counts once per item, not
+// once per field, so a supplier used in two of the three fields on one item is counted once, not
+// twice, same as Set semantics).
+export function countByMulti(items, getKeys) {
   const out = {}
   for (const item of items) {
     const keys = new Set((getKeys(item) || []).filter(Boolean))
     for (const key of keys) out[key] = (out[key] || 0) + 1
   }
   return out
-}
-
-export default function Categories() {
-  const { user } = useAuth()
-  const canEdit = isMgr(user?.role)
-  const { data: fabrics } = useApi(() => api.get('/fabrics'), [])
-  const { data: customers } = useApi(() => api.get('/customers'), [])
-  const { data: visits } = useApi(() => api.get('/visits'), [])
-
-  // quality_category (legacy D&D swatch category) is intentionally not surfaced on this page
-  // anymore — it's not part of the Item Master rebuild (see Fabrics.jsx), kept only in the data
-  // model/API for backward compatibility with anything else that still reads it.
-  const customerCatCounts = customers ? countBy(customers, (c) => c.category) : null
-  // Colour variants were removed from the Item Master form, so this no longer counts
-  // fabric.colour_variants (a field new items never populate) — it counts actual logged
-  // VisitItem.color values instead, matching what the "Colors" master is really used for now.
-  const colorCounts = visits
-    ? countBy(
-        visits.flatMap((v) => v.visit_contacts.flatMap((vc) => vc.items.map((i) => i.color))),
-        (name) => name
-      )
-    : null
-  const genderCounts = fabrics ? countByMulti(fabrics, (f) => f.gender) : null
-  const seasonCounts = fabrics ? countBy(fabrics, (f) => f.season) : null
-  const storyCounts = fabrics ? countBy(fabrics, (f) => f.story) : null
-  const supplierCounts = fabrics ? countByMulti(fabrics, (f) => [f.supplier, ...(f.lapf_domestic || []), ...(f.lapf_export || [])]) : null
-  const fabricCategoryCounts = fabrics ? countBy(fabrics, (f) => f.fabric_category) : null
-  const fabricTypeCounts = fabrics ? countBy(fabrics, (f) => f.fabric_type) : null
-  const printTypeCounts = fabrics ? countBy(fabrics, (f) => f.print_type) : null
-  const countryCounts = customers ? countBy(customers, (c) => c.country) : null
-  const stateCounts = customers
-    ? countBy(
-        [...customers, ...customers.flatMap((c) => c.contacts || [])],
-        (x) => x.state
-      )
-    : null
-
-  return (
-    <div>
-      <PageHead title="Categories" sub="Lists used across the system. Categories are never deleted, only deactivated." />
-      <h3 style={{ margin: '0 0 8px' }}>Item Master</h3>
-      <div className="grid g2">
-        <CategoryBlock title="Gender" hint="An item can be tagged both Men's and Women's — used count is per item, not per tag." type="gender" canEdit={canEdit} usageCounts={genderCounts} />
-        <SeasonBlock canEdit={canEdit} usageCounts={seasonCounts} />
-        <CategoryBlock title="Story" hint="Used to group items by design story on the Item Master." type="story" canEdit={canEdit} usageCounts={storyCounts} />
-        <CategoryBlock
-          title="Supplier"
-          hint="Used for Existing Supplier, Additional LAPF Domestic and LAPF Export on the Item Master — used count counts an item once even if a supplier appears in more than one of those fields on it."
-          type="supplier"
-          canEdit={canEdit}
-          usageCounts={supplierCounts}
-        />
-        <CategoryBlock title="Fabric Category" hint="Woven or Knit." type="fabric_category" canEdit={canEdit} usageCounts={fabricCategoryCounts} />
-        <CategoryBlock title="Fabric Type" hint="e.g. Twill, Jacquard, Dobby — used on the Item Master." type="fabric_type" canEdit={canEdit} usageCounts={fabricTypeCounts} />
-        <CategoryBlock title="Print Type" hint="e.g. Dyed, RFD, Digital Print — used on the Item Master." type="print_type" canEdit={canEdit} usageCounts={printTypeCounts} />
-      </div>
-      <h3 style={{ margin: '20px 0 8px' }}>Other categories</h3>
-      <div className="grid g2">
-        <CategoryBlock title="Customer categories" hint="Used to group customers and filter customers and reports." type="customer" canEdit={canEdit} usageCounts={customerCatCounts} />
-        <CategoryBlock title="Colors" hint="Used when logging which colour was given on a visit." type="color" canEdit={canEdit} usageCounts={colorCounts} />
-      </div>
-      <div style={{ marginTop: 16 }}>
-        <CountriesStates canEdit={canEdit} countryCounts={countryCounts} stateCounts={stateCounts} />
-      </div>
-    </div>
-  )
 }

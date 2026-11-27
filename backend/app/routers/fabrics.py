@@ -38,6 +38,12 @@ def list_fabrics(active_only: bool = False, db: Session = Depends(get_db), _: Us
 def create_fabric(payload: FabricCreate, db: Session = Depends(get_db), user: User = Depends(require_any)) -> Fabric:
     if db.scalar(select(Fabric).where(Fabric.code == payload.code)):
         raise conflict(f"Item code '{payload.code}' already exists")
+    # Required on the Item Master form (Urvish, 2026-11-26) — NOT enforced on the CSV/Excel bulk
+    # importers below, which intentionally allow older/partial rows to backfill gradually.
+    if not payload.season:
+        raise validation_error("Season is required")
+    if not payload.story:
+        raise validation_error("Story is required")
     fabric = Fabric(**payload.model_dump())
     db.add(fabric)
     audit(db, user_id=user.id, action="create_fabric", entity_type="fabric", detail={"code": fabric.code})
@@ -51,6 +57,15 @@ def update_fabric(fabric_id: uuid.UUID, payload: FabricUpdate, db: Session = Dep
     if not fabric:
         raise not_found("Item not found")
     data = payload.model_dump(exclude_unset=True)
+    # Same required-field rule as create_fabric — checked against the value AFTER this update is
+    # applied (so a save that doesn't touch season/story but already has them set is unaffected),
+    # not enforced for CSV/Excel bulk import.
+    final_season = data.get("season", fabric.season)
+    final_story = data.get("story", fabric.story)
+    if "season" in data and not final_season:
+        raise validation_error("Season is required")
+    if "story" in data and not final_story:
+        raise validation_error("Story is required")
     for field, value in data.items():
         setattr(fabric, field, value)
     audit(db, user_id=user.id, action="update_fabric", entity_type="fabric", entity_id=fabric.id, detail=data)
